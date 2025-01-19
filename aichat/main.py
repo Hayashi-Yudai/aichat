@@ -1,18 +1,23 @@
+from dataclasses import dataclass
 import flet as ft
-import asyncio  # 非同期処理用モジュール
-import threading  # スレッド管理用
-from openai import AsyncOpenAI
+from openai import OpenAI
 import os
 
 USER_NAME = "Yudai"
 DISABLE_AI = False
 
 
+@dataclass
+class User:
+    user_name: str
+    avatar_color: ft.Colors
+
+
+@dataclass
 class Message:
-    def __init__(self, user_name: str, text: str, message_type: str):
-        self.user_name = user_name
-        self.text = text
-        self.message_type = message_type
+    user: User
+    text: str
+    message_type: str
 
 
 class ChatMessage(ft.Row):
@@ -21,14 +26,16 @@ class ChatMessage(ft.Row):
         self.vertical_alignment = ft.CrossAxisAlignment.START
         self.controls = [
             ft.CircleAvatar(
-                content=ft.Text(self.get_initials(message.user_name)),
+                content=ft.Text(self.get_initials(message.user.user_name)),
                 color=ft.Colors.WHITE,
-                bgcolor=self.get_avatar_color(message.user_name),
+                bgcolor=message.user.avatar_color,
             ),
             ft.Column(
                 [
-                    ft.Text(message.user_name, weight="bold"),
-                    ft.Markdown(message.text, extension_set="gitHubWeb", selectable=True),
+                    ft.Text(message.user.user_name, weight="bold"),
+                    ft.Markdown(
+                        message.text, extension_set="gitHubWeb", selectable=True
+                    ),
                 ],
                 tight=True,
                 spacing=5,
@@ -42,22 +49,11 @@ class ChatMessage(ft.Row):
         else:
             return "Unknown"
 
-    def get_avatar_color(self, user_name: str):
-        return ft.Colors.GREEN
 
-
-def run_async_task(coroutine):
-    """
-    非同期タスクをバックグラウンドスレッドで実行する。
-    """
-    loop = asyncio.new_event_loop()
-    threading.Thread(target=lambda: loop.run_until_complete(coroutine)).start()
-
-
-async def add_accepted_message(page: ft.Page, message: Message):
+def add_system_message(message: Message, agent: User):
     if not DISABLE_AI:
-        client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        chat_completion = await client.chat.completions.create(
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        chat_completion = client.chat.completions.create(
             messages=[
                 {
                     "role": "user",
@@ -70,42 +66,32 @@ async def add_accepted_message(page: ft.Page, message: Message):
     else:
         content = "Hi"
 
-    accepted_message = Message("System", content, message_type="system_message")
-    page.pubsub.send_all(accepted_message)
-    page.update()
+    accepted_message = Message(agent, content, message_type="system_message")
+    return accepted_message
 
 
 def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
 
+    human = User(USER_NAME, ft.Colors.GREEN)
+    agent = User("System", ft.Colors.RED)
+
     def send_message_click(e):
         if new_message.value != "":
             user_message = Message(
-                page.session.get("user_name"),
+                human,
                 new_message.value,
                 message_type="chat_message",
             )
-            page.pubsub.send_all(user_message)
+            chat.controls.append(ChatMessage(user_message))
             new_message.value = ""
             new_message.focus()
             page.update()
 
-            # メッセージ送信後に "Accepted" メッセージを追加
-            run_async_task(add_accepted_message(page, user_message))
-
-    def on_message(message: Message):
-        if message.message_type == "chat_message":
-            m = ChatMessage(message)
-        elif message.message_type == "system_message":
-            m = ChatMessage(message)
-        else:
-            m = None
-
-        chat.controls.append(m)
-        page.update()
-
-    page.pubsub.subscribe(on_message)
+            ai_message = add_accepted_message(user_message, agent)
+            chat.controls.append(ChatMessage(ai_message))
+            page.update()
 
     page.session.set("user_name", USER_NAME)
 
