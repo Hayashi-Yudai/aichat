@@ -1,5 +1,6 @@
 import flet as ft
-
+import asyncio  # 非同期処理用モジュール
+import threading  # スレッド管理用
 
 USER_NAME = "Yudai"
 
@@ -35,25 +36,28 @@ class ChatMessage(ft.Row):
         if user_name:
             return user_name[:1].capitalize()
         else:
-            return "Unknown"  # or any default value you prefer
+            return "Unknown"
 
     def get_avatar_color(self, user_name: str):
-        colors_lookup = [
-            ft.Colors.AMBER,
-            ft.Colors.BLUE,
-            ft.Colors.BROWN,
-            ft.Colors.CYAN,
-            ft.Colors.GREEN,
-            ft.Colors.INDIGO,
-            ft.Colors.LIME,
-            ft.Colors.ORANGE,
-            ft.Colors.PINK,
-            ft.Colors.PURPLE,
-            ft.Colors.RED,
-            ft.Colors.TEAL,
-            ft.Colors.YELLOW,
-        ]
-        return colors_lookup[hash(user_name) % len(colors_lookup)]
+        return ft.Colors.GREEN
+
+
+def run_async_task(coroutine):
+    """
+    非同期タスクをバックグラウンドスレッドで実行する。
+    """
+    loop = asyncio.new_event_loop()
+    threading.Thread(target=lambda: loop.run_until_complete(coroutine)).start()
+
+
+async def add_accepted_message(page: ft.Page, chat: ft.ListView):
+    """
+    2秒後に 'Accepted' メッセージをタイムラインに追加する
+    """
+    await asyncio.sleep(2)  # 2秒待機
+    accepted_message = Message("System", "Accepted", message_type="system_message")
+    chat.controls.append(ChatMessage(accepted_message))
+    page.update()
 
 
 def main(page: ft.Page):
@@ -62,19 +66,23 @@ def main(page: ft.Page):
 
     def send_message_click(e):
         if new_message.value != "":
-            page.pubsub.send_all(
-                Message(
-                    page.session.get("user_name"),
-                    new_message.value,
-                    message_type="chat_message",
-                )
+            user_message = Message(
+                page.session.get("user_name"),
+                new_message.value,
+                message_type="chat_message",
             )
+            page.pubsub.send_all(user_message)
             new_message.value = ""
             new_message.focus()
             page.update()
 
+            # メッセージ送信後に "Accepted" メッセージを追加
+            run_async_task(add_accepted_message(page, chat))
+
     def on_message(message: Message):
         if message.message_type == "chat_message":
+            m = ChatMessage(message)
+        elif message.message_type == "system_message":
             m = ChatMessage(message)
         else:
             m = None
