@@ -1,6 +1,8 @@
 import flet as ft
 import asyncio  # 非同期処理用モジュール
 import threading  # スレッド管理用
+from openai import AsyncOpenAI
+import os
 
 USER_NAME = "Yudai"
 
@@ -50,12 +52,22 @@ def run_async_task(coroutine):
     threading.Thread(target=lambda: loop.run_until_complete(coroutine)).start()
 
 
-async def add_accepted_message(page: ft.Page, chat: ft.ListView):
-    """
-    2秒後に 'Accepted' メッセージをタイムラインに追加する
-    """
-    await asyncio.sleep(2)  # 2秒待機
-    accepted_message = Message("System", "Accepted", message_type="system_message")
+async def add_accepted_message(page: ft.Page):
+    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    chat_completion = await client.chat.completions.create(
+        messages=[
+            {
+                "role": "user",
+                "content": "Say this is a test",
+            }
+        ],
+        model="gpt-4o-mini",
+    )
+    print(chat_completion.choices[0])
+
+    accepted_message = Message(
+        "System", chat_completion.choices[0].message.content, message_type="system_message"
+    )
     page.pubsub.send_all(accepted_message)
     page.update()
 
@@ -77,7 +89,7 @@ def main(page: ft.Page):
             page.update()
 
             # メッセージ送信後に "Accepted" メッセージを追加
-            run_async_task(add_accepted_message(page, chat))
+            run_async_task(add_accepted_message(page))
 
     def on_message(message: Message):
         if message.message_type == "chat_message":
