@@ -56,7 +56,7 @@ async def add_accepted_message(page: ft.Page, chat: ft.ListView):
     """
     await asyncio.sleep(2)  # 2秒待機
     accepted_message = Message("System", "Accepted", message_type="system_message")
-    chat.controls.append(ChatMessage(accepted_message))
+    page.pubsub.send_all(accepted_message)
     page.update()
 
 
