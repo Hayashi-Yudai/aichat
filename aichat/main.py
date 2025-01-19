@@ -5,6 +5,7 @@ from openai import AsyncOpenAI
 import os
 
 USER_NAME = "Yudai"
+DISABLE_AI = False
 
 
 class Message:
@@ -27,10 +28,11 @@ class ChatMessage(ft.Row):
             ft.Column(
                 [
                     ft.Text(message.user_name, weight="bold"),
-                    ft.Text(message.text, selectable=True),
+                    ft.Markdown(message.text, extension_set="gitHubWeb", selectable=True),
                 ],
                 tight=True,
                 spacing=5,
+                expand=True,
             ),
         ]
 
@@ -52,22 +54,23 @@ def run_async_task(coroutine):
     threading.Thread(target=lambda: loop.run_until_complete(coroutine)).start()
 
 
-async def add_accepted_message(page: ft.Page):
-    client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-    chat_completion = await client.chat.completions.create(
-        messages=[
-            {
-                "role": "user",
-                "content": "Say this is a test",
-            }
-        ],
-        model="gpt-4o-mini",
-    )
-    print(chat_completion.choices[0])
+async def add_accepted_message(page: ft.Page, message: Message):
+    if not DISABLE_AI:
+        client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        chat_completion = await client.chat.completions.create(
+            messages=[
+                {
+                    "role": "user",
+                    "content": message.text,
+                }
+            ],
+            model="gpt-4o-mini",
+        )
+        content = chat_completion.choices[0].message.content
+    else:
+        content = "Hi"
 
-    accepted_message = Message(
-        "System", chat_completion.choices[0].message.content, message_type="system_message"
-    )
+    accepted_message = Message("System", content, message_type="system_message")
     page.pubsub.send_all(accepted_message)
     page.update()
 
@@ -89,7 +92,7 @@ def main(page: ft.Page):
             page.update()
 
             # メッセージ送信後に "Accepted" メッセージを追加
-            run_async_task(add_accepted_message(page))
+            run_async_task(add_accepted_message(page, user_message))
 
     def on_message(message: Message):
         if message.message_type == "chat_message":
