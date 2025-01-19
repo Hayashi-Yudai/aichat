@@ -1,6 +1,9 @@
 import flet as ft
 
 
+USER_NAME = "Yudai"
+
+
 class Message:
     def __init__(self, user_name: str, text: str, message_type: str):
         self.user_name = user_name
@@ -57,23 +60,6 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
 
-    def join_chat_click(e):
-        if not join_user_name.value:
-            join_user_name.error_text = "Name cannot be blank!"
-            join_user_name.update()
-        else:
-            page.session.set("user_name", join_user_name.value)
-            page.dialog.open = False
-            new_message.prefix = ft.Text(f"{join_user_name.value}: ")
-            page.pubsub.send_all(
-                Message(
-                    user_name=join_user_name.value,
-                    text=f"{join_user_name.value} has joined the chat.",
-                    message_type="login_message",
-                )
-            )
-            page.update()
-
     def send_message_click(e):
         if new_message.value != "":
             page.pubsub.send_all(
@@ -90,27 +76,15 @@ def main(page: ft.Page):
     def on_message(message: Message):
         if message.message_type == "chat_message":
             m = ChatMessage(message)
-        elif message.message_type == "login_message":
-            m = ft.Text(message.text, italic=True, color=ft.Colors.BLACK45, size=12)
+        else:
+            m = None
+
         chat.controls.append(m)
         page.update()
 
     page.pubsub.subscribe(on_message)
 
-    # A dialog asking for a user display name
-    join_user_name = ft.TextField(
-        label="Enter your name to join the chat",
-        autofocus=True,
-        on_submit=join_chat_click,
-    )
-    page.dialog = ft.AlertDialog(
-        open=True,
-        modal=True,
-        title=ft.Text("Welcome!"),
-        content=ft.Column([join_user_name], width=300, height=70, tight=True),
-        actions=[ft.ElevatedButton(text="Join chat", on_click=join_chat_click)],
-        actions_alignment=ft.MainAxisAlignment.END,
-    )
+    page.session.set("user_name", USER_NAME)
 
     # Chat messages
     chat = ft.ListView(
