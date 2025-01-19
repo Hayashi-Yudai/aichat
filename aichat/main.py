@@ -2,6 +2,9 @@ from dataclasses import dataclass
 import flet as ft
 from openai import OpenAI
 import os
+from typing import Iterable
+
+from openai.types.chat import ChatCompletionMessageParam
 
 USER_NAME = "Yudai"
 DISABLE_AI = False
@@ -11,6 +14,27 @@ DISABLE_AI = False
 class User:
     user_name: str
     avatar_color: ft.Colors
+
+
+class OpenAIAgent(User):
+    def __init__(self, model_name: str):
+        self.user_name = "System"
+        self.avatar_color = ft.Colors.RED
+
+        self.model_name = model_name
+        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+
+        self.messages: Iterable[ChatCompletionMessageParam] = []
+
+    def get_response(self, message: str):
+        self.messages.append({"role": "user", "content": message})
+        chat_completion = self.client.chat.completions.create(
+            messages=self.messages,
+            model=self.model_name,
+        )
+        content = chat_completion.choices[0].message.content
+
+        return Message(self, content, message_type="system_message")
 
 
 @dataclass
@@ -50,32 +74,12 @@ class ChatMessage(ft.Row):
             return "Unknown"
 
 
-def add_system_message(message: Message, agent: User):
-    if not DISABLE_AI:
-        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-        chat_completion = client.chat.completions.create(
-            messages=[
-                {
-                    "role": "user",
-                    "content": message.text,
-                }
-            ],
-            model="gpt-4o-mini",
-        )
-        content = chat_completion.choices[0].message.content
-    else:
-        content = "Hi"
-
-    accepted_message = Message(agent, content, message_type="system_message")
-    return accepted_message
-
-
 def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
 
     human = User(USER_NAME, ft.Colors.GREEN)
-    agent = User("System", ft.Colors.RED)
+    agent = OpenAIAgent("gpt-4o-mini")
 
     def send_message_click(e):
         if new_message.value != "":
@@ -89,7 +93,7 @@ def main(page: ft.Page):
             new_message.focus()
             page.update()
 
-            ai_message = add_accepted_message(user_message, agent)
+            ai_message = agent.get_response(user_message.text)
             chat.controls.append(ChatMessage(ai_message))
             page.update()
 
