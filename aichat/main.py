@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import flet as ft
 from openai import OpenAI
 import os
-from typing import Iterable
 
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -24,7 +23,7 @@ class OpenAIAgent(User):
         self.model_name = model_name
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-        self.messages: Iterable[ChatCompletionMessageParam] = []
+        self.messages: list[ChatCompletionMessageParam] = []
 
     def get_response(self, message: str):
         if not DISABLE_AI:
@@ -34,6 +33,8 @@ class OpenAIAgent(User):
                 model=self.model_name,
             )
             content = chat_completion.choices[0].message.content
+            if content is None:
+                return None
 
             return Message(self, content)
         else:
@@ -61,9 +62,9 @@ class ChatMessage(ft.Row):
             ),
             ft.Column(
                 [
-                    ft.Text(message.user.user_name, weight="bold"),
+                    ft.Text(message.user.user_name, weight=ft.FontWeight.BOLD),
                     ft.Markdown(
-                        message.text, extension_set="gitHubWeb", selectable=True
+                        message.text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, selectable=True
                     ),
                 ],
                 tight=True,
@@ -87,8 +88,8 @@ def main(page: ft.Page):
     app_agent = User("App", ft.Colors.GREY)
     agent = OpenAIAgent("gpt-4o-mini")
 
-    def send_message_click(e):
-        if new_message.value != "":
+    def send_message_click(_):
+        if new_message.value is not None and new_message.value != "":
             user_message = Message(
                 human,
                 new_message.value,
@@ -99,10 +100,14 @@ def main(page: ft.Page):
             page.update()
 
             ai_message = agent.get_response(user_message.text)
-            chat.controls.append(ChatMessage(ai_message))
+            if ai_message is not None:
+                chat.controls.append(ChatMessage(ai_message))
             page.update()
 
     def load_file(e: ft.FilePickerResultEvent):
+        if e.files is None:
+            return
+
         for f in e.files:
             with open(f.path, "r") as d:
                 text = d.read()
