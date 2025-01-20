@@ -35,9 +35,9 @@ class OpenAIAgent(User):
             )
             content = chat_completion.choices[0].message.content
 
-            return Message(self, content, message_type="system_message")
+            return Message(self, content)
         else:
-            return Message(self, "Test", message_type="system_message")
+            return Message(self, "Test")
 
     def append_file_into_messages(self, text: str):
         self.messages.append({"role": "user", "content": text})
@@ -47,7 +47,6 @@ class OpenAIAgent(User):
 class Message:
     user: User
     text: str
-    message_type: str
 
 
 class ChatMessage(ft.Row):
@@ -93,7 +92,6 @@ def main(page: ft.Page):
             user_message = Message(
                 human,
                 new_message.value,
-                message_type="chat_message",
             )
             chat.controls.append(ChatMessage(user_message))
             new_message.value = ""
@@ -109,13 +107,7 @@ def main(page: ft.Page):
             with open(f.path, "r") as d:
                 text = d.read()
 
-            chat.controls.append(
-                ChatMessage(
-                    Message(
-                        app_agent, f"Uploaded: {f.name}", message_type="system_message"
-                    )
-                )
-            )
+            chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}")))
             page.update()
             agent.append_file_into_messages(text)
 
