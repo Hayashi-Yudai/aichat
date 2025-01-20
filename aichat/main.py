@@ -39,6 +39,9 @@ class OpenAIAgent(User):
         else:
             return Message(self, "Test", message_type="system_message")
 
+    def append_file_into_messages(self, text: str):
+        self.messages.append({"role": "user", "content": text})
+
 
 @dataclass
 class Message:
@@ -82,6 +85,7 @@ def main(page: ft.Page):
     page.title = "Flet Chat"
 
     human = User(USER_NAME, ft.Colors.GREEN)
+    app_agent = User("App", ft.Colors.GREY)
     agent = OpenAIAgent("gpt-4o-mini")
 
     def send_message_click(e):
@@ -99,6 +103,16 @@ def main(page: ft.Page):
             ai_message = agent.get_response(user_message.text)
             chat.controls.append(ChatMessage(ai_message))
             page.update()
+
+    def load_file(e: ft.FilePickerResultEvent):
+        for f in e.files:
+            with open(f.path, 'r') as d:
+                text = d.read()
+
+            chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}", message_type="system_message")))
+            page.update()
+            agent.append_file_into_messages(text)
+
 
     page.session.set("user_name", USER_NAME)
 
@@ -120,6 +134,9 @@ def main(page: ft.Page):
         expand=True,
         on_submit=send_message_click,
     )
+    file_picker = ft.FilePicker(on_result=load_file)
+    page.overlay.append(file_picker)
+    page.update()
 
     # Add everything to the page
     page.add(
@@ -132,6 +149,11 @@ def main(page: ft.Page):
         ),
         ft.Row(
             [
+                ft.IconButton(
+                    icon=ft.Icons.ADD,
+                    tooltip="Upload file",
+                    on_click=lambda _: file_picker.pick_files(allow_multiple=True),
+                ),
                 new_message,
                 ft.IconButton(
                     icon=ft.Icons.SEND_ROUNDED,
