@@ -7,7 +7,7 @@ from typing import Iterable
 from openai.types.chat import ChatCompletionMessageParam
 
 USER_NAME = "Yudai"
-DISABLE_AI = False
+DISABLE_AI = True
 
 
 @dataclass
@@ -19,7 +19,7 @@ class User:
 class OpenAIAgent(User):
     def __init__(self, model_name: str):
         self.user_name = "System"
-        self.avatar_color = ft.Colors.RED
+        self.avatar_color = ft.Colors.BLUE
 
         self.model_name = model_name
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
@@ -27,14 +27,17 @@ class OpenAIAgent(User):
         self.messages: Iterable[ChatCompletionMessageParam] = []
 
     def get_response(self, message: str):
-        self.messages.append({"role": "user", "content": message})
-        chat_completion = self.client.chat.completions.create(
-            messages=self.messages,
-            model=self.model_name,
-        )
-        content = chat_completion.choices[0].message.content
+        if not DISABLE_AI:
+            self.messages.append({"role": "user", "content": message})
+            chat_completion = self.client.chat.completions.create(
+                messages=self.messages,
+                model=self.model_name,
+            )
+            content = chat_completion.choices[0].message.content
 
-        return Message(self, content, message_type="system_message")
+            return Message(self, content, message_type="system_message")
+        else:
+            return Message(self, "Test", message_type="system_message")
 
 
 @dataclass
@@ -110,7 +113,7 @@ def main(page: ft.Page):
     new_message = ft.TextField(
         hint_text="Write a message...",
         autofocus=True,
-        shift_enter=True,
+        shift_enter=False,
         min_lines=1,
         max_lines=5,
         filled=True,
