@@ -106,13 +106,18 @@ def main(page: ft.Page):
 
     def load_file(e: ft.FilePickerResultEvent):
         for f in e.files:
-            with open(f.path, 'r') as d:
+            with open(f.path, "r") as d:
                 text = d.read()
 
-            chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}", message_type="system_message")))
+            chat.controls.append(
+                ChatMessage(
+                    Message(
+                        app_agent, f"Uploaded: {f.name}", message_type="system_message"
+                    )
+                )
+            )
             page.update()
             agent.append_file_into_messages(text)
-
 
     page.session.set("user_name", USER_NAME)
 
