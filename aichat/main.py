@@ -43,12 +43,12 @@ class OpenAIAgent(User):
         else:
             return Message(self, "Test")
 
-    def append_file_into_messages(self, text: str, file_type: str = "text"):
+    def append_file_into_messages(self, content: str, file_type: str = "text"):
         if file_type == "text":
             self.messages.append(
                 {
                     "role": "user",
-                    "content": text,
+                    "content": content,
                 }
             )
         elif file_type == "image_url":
@@ -58,7 +58,7 @@ class OpenAIAgent(User):
                     "content": [
                         {
                             "type": "image_url",
-                            "image_url": {'url': f"data:image/jpeg;base64,{text}"},
+                            "image_url": {'url': f"data:image/jpeg;base64,{content}"},
                         }
                     ],
                 }
@@ -137,22 +137,22 @@ def main(page: ft.Page):
             file_type = None
             if f.path.endswith(".pdf"):
                 with pdfplumber.open(f.path) as pdf:
-                    text = ""
+                    content = ""
                     for p in pdf.pages:
-                        text += p.extract_text()
+                        content += p.extract_text()
                 file_type = "text"
             elif f.path.endswith(".png") or f.path.endswith(".jpg"):
                 with open(f.path, "rb") as d:
-                    text = base64.b64encode(d.read()).decode("utf-8")
+                    content = base64.b64encode(d.read()).decode("utf-8")
                 file_type = "image_url"
             else:
                 with open(f.path, "r") as d:
-                    text = d.read()
+                    content = d.read()
                 file_type = "text"
 
             chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}")))
             page.update()
-            agent.append_file_into_messages(text, file_type=file_type)
+            agent.append_file_into_messages(content, file_type=file_type)
 
     page.session.set("user_name", USER_NAME)
 
