@@ -1,12 +1,15 @@
+import base64
 from dataclasses import dataclass
 import flet as ft
 from openai import OpenAI
+import pdfplumber
 import os
 
 from openai.types.chat import ChatCompletionMessageParam
 
 USER_NAME = "Yudai"
-DISABLE_AI = True
+DISABLE_AI = False
+MODEL_NAME = "gpt-4o-mini"
 
 
 @dataclass
@@ -40,8 +43,26 @@ class OpenAIAgent(User):
         else:
             return Message(self, "Test")
 
-    def append_file_into_messages(self, text: str):
-        self.messages.append({"role": "user", "content": text})
+    def append_file_into_messages(self, text: str, file_type: str = "text"):
+        if file_type == "text":
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": text,
+                }
+            )
+        elif file_type == "image_url":
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image_url",
+                            "image_url": {'url': f"data:image/jpeg;base64,{text}"},
+                        }
+                    ],
+                }
+            )
 
 
 @dataclass
@@ -64,7 +85,9 @@ class ChatMessage(ft.Row):
                 [
                     ft.Text(message.user.user_name, weight=ft.FontWeight.BOLD),
                     ft.Markdown(
-                        message.text, extension_set=ft.MarkdownExtensionSet.GITHUB_WEB, selectable=True
+                        message.text,
+                        extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+                        selectable=True,
                     ),
                 ],
                 tight=True,
@@ -83,10 +106,12 @@ class ChatMessage(ft.Row):
 def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
+    # page.window.width = 1000
+    # page.window.height = 800
 
     human = User(USER_NAME, ft.Colors.GREEN)
     app_agent = User("App", ft.Colors.GREY)
-    agent = OpenAIAgent("gpt-4o-mini")
+    agent = OpenAIAgent(MODEL_NAME)
 
     def send_message_click(_):
         if new_message.value is not None and new_message.value != "":
@@ -109,12 +134,25 @@ def main(page: ft.Page):
             return
 
         for f in e.files:
-            with open(f.path, "r") as d:
-                text = d.read()
+            file_type = None
+            if f.path.endswith(".pdf"):
+                with pdfplumber.open(f.path) as pdf:
+                    text = ""
+                    for p in pdf.pages:
+                        text += p.extract_text()
+                file_type = "text"
+            elif f.path.endswith(".png") or f.path.endswith(".jpg"):
+                with open(f.path, "rb") as d:
+                    text = base64.b64encode(d.read()).decode("utf-8")
+                file_type = "image_url"
+            else:
+                with open(f.path, "r") as d:
+                    text = d.read()
+                file_type = "text"
 
             chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}")))
             page.update()
-            agent.append_file_into_messages(text)
+            agent.append_file_into_messages(text, file_type=file_type)
 
     page.session.set("user_name", USER_NAME)
 
