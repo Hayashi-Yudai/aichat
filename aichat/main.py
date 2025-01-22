@@ -1,14 +1,16 @@
 import base64
 from dataclasses import dataclass
-import flet as ft
-from openai import OpenAI
-import pdfplumber
 import os
 
+import flet as ft
+from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
+import pdfplumber
+
+from state import State
 
 USER_NAME = "Yudai"
-DISABLE_AI = False
+DISABLE_AI = True
 MODEL_NAME = "gpt-4o-mini"
 
 
@@ -58,7 +60,7 @@ class OpenAIAgent(User):
                     "content": [
                         {
                             "type": "image_url",
-                            "image_url": {'url': f"data:image/jpeg;base64,{content}"},
+                            "image_url": {"url": f"data:image/jpeg;base64,{content}"},
                         }
                     ],
                 }
@@ -114,13 +116,13 @@ def main(page: ft.Page):
     agent = OpenAIAgent(MODEL_NAME)
 
     def send_message_click(_):
-        if new_message.value is not None and new_message.value != "":
+        if human_entry.get() is not None and human_entry.get() != "":
             user_message = Message(
                 human,
-                new_message.value,
+                human_entry.get(),
             )
             chat.controls.append(ChatMessage(user_message))
-            new_message.value = ""
+            human_entry.set_value("")
             new_message.focus()
             page.update()
 
@@ -164,7 +166,13 @@ def main(page: ft.Page):
     )
 
     # A new message entry form
+    human_entry = State("")
+
+    def new_message_on_change(e: ft.ControlEvent):
+        human_entry.set_value(new_message.value)
+
     new_message = ft.TextField(
+        value=human_entry.get(),
         hint_text="Write a message...",
         autofocus=True,
         shift_enter=False,
@@ -173,7 +181,14 @@ def main(page: ft.Page):
         filled=True,
         expand=True,
         on_submit=send_message_click,
+        on_change=new_message_on_change,
     )
+
+    def new_message_bind():
+        new_message.value = human_entry.get()
+
+    human_entry.bind(new_message_bind)
+
     file_picker = ft.FilePicker(on_result=load_file)
     page.overlay.append(file_picker)
     page.update()
