@@ -9,14 +9,14 @@ class Message:
 
     role: Role
     content_type: str
-    content: str
-    system_content: str
+    content: str  # チャット履歴に表示される内容
+    system_content: str  # Agentが処理する内容
 
     def to_openai_message(self):
         if self.content_type == "text":
             return {
                 "role": "user",
-                "content": self.content,
+                "content": self.system_content,
             }
         elif self.content_type == "image_url":
             return {

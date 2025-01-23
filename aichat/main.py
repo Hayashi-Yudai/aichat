@@ -8,7 +8,7 @@ from roles import Agent, DummyAgent, OpenAIAgent, User, System
 from messages import Message
 
 USER_NAME = "Yudai"
-DISABLE_AI = True
+DISABLE_AI = False
 MODEL_NAME = "gpt-4o-mini"
 
 
@@ -136,7 +136,7 @@ class FileLoader(ft.FilePicker):
             file_type = None
             if f.path.endswith(".pdf"):
                 with pdfplumber.open(f.path) as pdf:
-                    system_content = ""
+                    system_content = f"{f.name}: "
                     for p in pdf.pages:
                         system_content += p.extract_text()
                 file_type = "text"
