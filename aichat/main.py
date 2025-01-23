@@ -3,7 +3,7 @@ import base64
 import flet as ft
 import pdfplumber
 
-from state import State, ListState
+from state import ListState
 from roles import Agent, DummyAgent, OpenAIAgent, User, System
 from messages import Message
 
@@ -99,7 +99,7 @@ class UserMessage(ft.TextField):
 
 
 class ChatHisiory(ft.ListView):
-    def __init__(self, history_state: State, user: User):
+    def __init__(self, history_state: ListState, user: User):
         super().__init__()
         self.expand = True
         self.auto_scroll = True
