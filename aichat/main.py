@@ -7,10 +7,10 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 import pdfplumber
 
-from state import State
+from state import State, ListState
 
 USER_NAME = "Yudai"
-DISABLE_AI = True
+DISABLE_AI = False
 MODEL_NAME = "gpt-4o-mini"
 
 
@@ -105,33 +105,88 @@ class ChatMessage(ft.Row):
             return "Unknown"
 
 
-def main(page: ft.Page):
-    page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
-    page.title = "Flet Chat"
-    # page.window.width = 1000
-    # page.window.height = 800
+class UserMessage(ft.TextField):
+    def __init__(
+        self,
+        message_state: State,
+        history_state: ListState,
+        user: User,
+        agent: OpenAIAgent,
+    ):
+        super().__init__()
 
-    human = User(USER_NAME, ft.Colors.GREEN)
-    app_agent = User("App", ft.Colors.GREY)
-    agent = OpenAIAgent(MODEL_NAME)
+        self.hint_text = "Write a message..."
+        self.autofocus = True
+        self.shift_enter = False
+        self.min_lines = 1
+        self.max_lines = 5
+        self.filled = True
+        self.expand = True
 
-    def send_message_click(_):
-        if human_entry.get() is not None and human_entry.get() != "":
-            user_message = Message(
-                human,
-                human_entry.get(),
-            )
-            chat.controls.append(ChatMessage(user_message))
-            human_entry.set_value("")
-            new_message.focus()
-            page.update()
+        self.message_state = message_state
+        self.history_state = history_state
+        self.bind()
 
-            ai_message = agent.get_response(user_message.text)
-            if ai_message is not None:
-                chat.controls.append(ChatMessage(ai_message))
-            page.update()
+        self.value = message_state.get()
+        self.on_submit = self.on_submit_func
 
-    def load_file(e: ft.FilePickerResultEvent):
+        self.user = user
+        self.agent = agent
+
+    def bind(self):
+        def bind_func():
+            self.value = self.message_state.get()
+            self.update()  # MEMO: これをここにいれるべきかは検討の余地あり
+
+        self.message_state.bind(bind_func)
+
+    def on_submit_func(self, e: ft.ControlEvent):
+        if self.value is not None and self.value != "":
+            self.message_state.set_value(self.value)
+            user_message = Message(self.user, self.value)
+
+            self.history_state.append(ChatMessage(user_message))
+
+            self.message_state.set_value("")
+
+            self.focus()
+
+            agent_message = self.agent.get_response(user_message.text)
+            if agent_message is not None:
+                self.history_state.append(ChatMessage(agent_message))
+
+
+class ChatHisiory(ft.ListView):
+    def __init__(self, history_state: State, user: User):
+        super().__init__()
+        self.expand = True
+        self.auto_scroll = True
+        self.spacing = 10
+
+        self.history_state = history_state
+
+        self.user = user
+        self.bind()
+
+    def bind(self):
+        def bind_func():
+            self.controls = self.history_state.get()
+            self.update()
+
+        self.history_state.bind(bind_func)
+
+
+class FileLoader(ft.FilePicker):
+    def __init__(self, history_state: ListState, app_agent: User, agent: OpenAIAgent):
+        super().__init__()
+        self.on_result = self.load_file
+
+        self.app_agent = app_agent
+        self.agent = agent
+
+        self.history_state = history_state
+
+    def load_file(self, e: ft.FilePickerResultEvent):
         if e.files is None:
             return
 
@@ -152,51 +207,39 @@ def main(page: ft.Page):
                     content = d.read()
                 file_type = "text"
 
-            chat.controls.append(ChatMessage(Message(app_agent, f"Uploaded: {f.name}")))
-            page.update()
-            agent.append_file_into_messages(content, file_type=file_type)
+            self.history_state.append(
+                ChatMessage(Message(self.app_agent, f"Uploaded: {f.name}"))
+            )
+            self.update()
+            self.agent.append_file_into_messages(content, file_type=file_type)
 
-    page.session.set("user_name", USER_NAME)
 
-    # Chat messages
-    chat = ft.ListView(
-        expand=True,
-        spacing=10,
-        auto_scroll=True,
-    )
+def main(page: ft.Page):
+    page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
+    page.title = "Flet Chat"
+    # page.window.width = 1000
+    # page.window.height = 800
 
-    # A new message entry form
+    human = User(USER_NAME, ft.Colors.GREEN)
+    app_agent = User("App", ft.Colors.GREY)
+    agent = OpenAIAgent(MODEL_NAME)
+
     human_entry = State("")
+    chat_history_state = ListState([])
 
-    def new_message_on_change(e: ft.ControlEvent):
-        human_entry.set_value(new_message.value)
+    file_picker = FileLoader(chat_history_state, app_agent, agent)
+    page.overlay.append(file_picker)
 
-    new_message = ft.TextField(
-        value=human_entry.get(),
-        hint_text="Write a message...",
-        autofocus=True,
-        shift_enter=False,
-        min_lines=1,
-        max_lines=5,
-        filled=True,
-        expand=True,
-        on_submit=send_message_click,
-        on_change=new_message_on_change,
+    user_message = UserMessage(
+        message_state=human_entry,
+        history_state=chat_history_state,
+        user=human,
+        agent=agent,
     )
 
-    def new_message_bind():
-        new_message.value = human_entry.get()
-
-    human_entry.bind(new_message_bind)
-
-    file_picker = ft.FilePicker(on_result=load_file)
-    page.overlay.append(file_picker)
-    page.update()
-
-    # Add everything to the page
     page.add(
         ft.Container(
-            content=chat,
+            content=ChatHisiory(chat_history_state, human),
             border=ft.border.all(1, ft.Colors.OUTLINE),
             border_radius=5,
             padding=10,
@@ -209,11 +252,11 @@ def main(page: ft.Page):
                     tooltip="Upload file",
                     on_click=lambda _: file_picker.pick_files(allow_multiple=True),
                 ),
-                new_message,
+                user_message,
                 ft.IconButton(
                     icon=ft.Icons.SEND_ROUNDED,
                     tooltip="Send message",
-                    on_click=send_message_click,
+                    on_click=user_message.on_submit_func,
                 ),
             ]
         ),
