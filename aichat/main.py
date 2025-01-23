@@ -1,93 +1,35 @@
 import base64
-from dataclasses import dataclass
-import os
 
 import flet as ft
-from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageParam
 import pdfplumber
 
 from state import State, ListState
+from roles import Agent, DummyAgent, OpenAIAgent, User, System
+from messages import Message
 
 USER_NAME = "Yudai"
-DISABLE_AI = False
+DISABLE_AI = True
 MODEL_NAME = "gpt-4o-mini"
-
-
-@dataclass
-class User:
-    user_name: str
-    avatar_color: ft.Colors
-
-
-class OpenAIAgent(User):
-    def __init__(self, model_name: str):
-        self.user_name = "System"
-        self.avatar_color = ft.Colors.BLUE
-
-        self.model_name = model_name
-        self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
-
-        self.messages: list[ChatCompletionMessageParam] = []
-
-    def get_response(self, message: str):
-        if not DISABLE_AI:
-            self.messages.append({"role": "user", "content": message})
-            chat_completion = self.client.chat.completions.create(
-                messages=self.messages,
-                model=self.model_name,
-            )
-            content = chat_completion.choices[0].message.content
-            if content is None:
-                return None
-
-            return Message(self, content)
-        else:
-            return Message(self, "Test")
-
-    def append_file_into_messages(self, content: str, file_type: str = "text"):
-        if file_type == "text":
-            self.messages.append(
-                {
-                    "role": "user",
-                    "content": content,
-                }
-            )
-        elif file_type == "image_url":
-            self.messages.append(
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": f"data:image/jpeg;base64,{content}"},
-                        }
-                    ],
-                }
-            )
-
-
-@dataclass
-class Message:
-    user: User
-    text: str
 
 
 class ChatMessage(ft.Row):
     def __init__(self, message: Message):
         super().__init__()
+
+        self.message = message
+
         self.vertical_alignment = ft.CrossAxisAlignment.START
         self.controls = [
             ft.CircleAvatar(
-                content=ft.Text(self.get_initials(message.user.user_name)),
+                content=ft.Text(self.get_initials(message.role.name)),
                 color=ft.Colors.WHITE,
-                bgcolor=message.user.avatar_color,
+                bgcolor=message.role.avatar_color,
             ),
             ft.Column(
                 [
-                    ft.Text(message.user.user_name, weight=ft.FontWeight.BOLD),
+                    ft.Text(message.role.name, weight=ft.FontWeight.BOLD),
                     ft.Markdown(
-                        message.text,
+                        message.content,
                         extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
                         selectable=True,
                     ),
@@ -108,10 +50,9 @@ class ChatMessage(ft.Row):
 class UserMessage(ft.TextField):
     def __init__(
         self,
-        message_state: State,
         history_state: ListState,
         user: User,
-        agent: OpenAIAgent,
+        agent: Agent,
     ):
         super().__init__()
 
@@ -122,38 +63,39 @@ class UserMessage(ft.TextField):
         self.max_lines = 5
         self.filled = True
         self.expand = True
+        self.value = ""
 
-        self.message_state = message_state
         self.history_state = history_state
-        self.bind()
 
-        self.value = message_state.get()
         self.on_submit = self.on_submit_func
 
         self.user = user
         self.agent = agent
 
-    def bind(self):
-        def bind_func():
-            self.value = self.message_state.get()
-            self.update()  # MEMO: これをここにいれるべきかは検討の余地あり
-
-        self.message_state.bind(bind_func)
-
     def on_submit_func(self, e: ft.ControlEvent):
         if self.value is not None and self.value != "":
-            self.message_state.set_value(self.value)
-            user_message = Message(self.user, self.value)
-
+            user_message = Message(self.user, "text", self.value, self.value)
             self.history_state.append(ChatMessage(user_message))
-
-            self.message_state.set_value("")
+            self.value = ""
 
             self.focus()
 
-            agent_message = self.agent.get_response(user_message.text)
+            # FIXME: ここでエージェントごとの分岐を処理するのは微妙
+            agent_input = [
+                c.message.to_openai_message() for c in self.history_state.get()
+            ]
+            agent_message = self.agent.get_response(agent_input)
             if agent_message is not None:
-                self.history_state.append(ChatMessage(agent_message))
+                self.history_state.append(
+                    ChatMessage(
+                        Message(
+                            role=self.agent,  # type: ignore
+                            content_type="text",
+                            content=agent_message,
+                            system_content=agent_message,
+                        )
+                    )
+                )
 
 
 class ChatHisiory(ft.ListView):
@@ -177,7 +119,7 @@ class ChatHisiory(ft.ListView):
 
 
 class FileLoader(ft.FilePicker):
-    def __init__(self, history_state: ListState, app_agent: User, agent: OpenAIAgent):
+    def __init__(self, history_state: ListState, app_agent: System, agent: Agent):
         super().__init__()
         self.on_result = self.load_file
 
@@ -194,24 +136,30 @@ class FileLoader(ft.FilePicker):
             file_type = None
             if f.path.endswith(".pdf"):
                 with pdfplumber.open(f.path) as pdf:
-                    content = ""
+                    system_content = ""
                     for p in pdf.pages:
-                        content += p.extract_text()
+                        system_content += p.extract_text()
                 file_type = "text"
             elif f.path.endswith(".png") or f.path.endswith(".jpg"):
                 with open(f.path, "rb") as d:
-                    content = base64.b64encode(d.read()).decode("utf-8")
+                    system_content = base64.b64encode(d.read()).decode("utf-8")
                 file_type = "image_url"
             else:
                 with open(f.path, "r") as d:
-                    content = d.read()
+                    system_content = d.read()
                 file_type = "text"
 
             self.history_state.append(
-                ChatMessage(Message(self.app_agent, f"Uploaded: {f.name}"))
+                ChatMessage(
+                    Message(
+                        self.app_agent,
+                        file_type,
+                        content=f"Uploaded: {f.name}",
+                        system_content=system_content,
+                    )
+                )
             )
             self.update()
-            self.agent.append_file_into_messages(content, file_type=file_type)
 
 
 def main(page: ft.Page):
@@ -221,17 +169,19 @@ def main(page: ft.Page):
     # page.window.height = 800
 
     human = User(USER_NAME, ft.Colors.GREEN)
-    app_agent = User("App", ft.Colors.GREY)
-    agent = OpenAIAgent(MODEL_NAME)
+    app_agent = System("App", ft.Colors.GREY)
+    agent: Agent
+    if not DISABLE_AI:
+        agent = OpenAIAgent(MODEL_NAME)
+    else:
+        agent = DummyAgent()
 
-    human_entry = State("")
     chat_history_state = ListState([])
 
     file_picker = FileLoader(chat_history_state, app_agent, agent)
     page.overlay.append(file_picker)
 
     user_message = UserMessage(
-        message_state=human_entry,
         history_state=chat_history_state,
         user=human,
         agent=agent,
