@@ -1,4 +1,7 @@
 import base64
+from datetime import datetime
+import sqlite3
+import uuid
 
 import flet as ft
 import pdfplumber
@@ -6,6 +9,8 @@ import pdfplumber
 from state import ListState
 from roles import Agent, DummyAgent, OpenAIAgent, User, System
 from messages import Message
+
+# from tables import ChatTable, MessageTable
 
 USER_NAME = "Yudai"
 DISABLE_AI = False
@@ -50,11 +55,14 @@ class ChatMessage(ft.Row):
 class UserMessage(ft.TextField):
     def __init__(
         self,
+        chat_id: str,
         history_state: ListState,
         user: User,
         agent: Agent,
+        conn: sqlite3.Connection,
     ):
         super().__init__()
+        self.chat_id = chat_id
 
         self.hint_text = "Write a message..."
         self.autofocus = True
@@ -72,9 +80,29 @@ class UserMessage(ft.TextField):
         self.user = user
         self.agent = agent
 
+        self.conn = conn
+
     def on_submit_func(self, e: ft.ControlEvent):
         if self.value is not None and self.value != "":
             user_message = Message(self.user, "text", self.value, self.value)
+            id = str(uuid.uuid4())
+            created_at = datetime.now()
+            self.conn.execute(
+                """
+                INSERT INTO message (id, created_at, chat_id, role, content_type, content, system_content)
+                VALUES (?, ?, ?, ?, ?, ?, ?);
+                """,
+                (
+                    id,
+                    created_at,
+                    self.chat_id,
+                    self.user.name,
+                    user_message.content_type,
+                    user_message.content,
+                    user_message.system_content,
+                ),
+            )
+            self.conn.commit()
             self.history_state.append(ChatMessage(user_message))
             self.value = ""
 
@@ -86,6 +114,8 @@ class UserMessage(ft.TextField):
             ]
             agent_message = self.agent.get_response(agent_input)
             if agent_message is not None:
+                id = str(uuid.uuid4())
+                created_at = datetime.now()
                 self.history_state.append(
                     ChatMessage(
                         Message(
@@ -96,6 +126,22 @@ class UserMessage(ft.TextField):
                         )
                     )
                 )
+                self.conn.execute(
+                    """
+                    INSERT INTO message (id, created_at, chat_id, role, content_type, content, system_content)
+                    VALUES (?, ?, ?, ?, ?, ?, ?);
+                    """,
+                    (
+                        id,
+                        created_at,
+                        self.chat_id,
+                        "Agent",
+                        "text",
+                        agent_message,
+                        agent_message,
+                    ),
+                )
+                self.conn.commit()
 
 
 class ChatHisiory(ft.ListView):
@@ -163,54 +209,91 @@ class FileLoader(ft.FilePicker):
 
 
 def main(page: ft.Page):
-    page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
-    page.title = "Flet Chat"
-    # page.window.width = 1000
-    # page.window.height = 800
+    # datetime → TEXT に変換するアダプター
+    def adapt_datetime(dt):
+        return dt.isoformat()  # 'YYYY-MM-DDTHH:MM:SS.ssssss'
 
-    human = User(USER_NAME, ft.Colors.GREEN)
-    app_agent = System("App", ft.Colors.GREY)
-    agent: Agent
-    if not DISABLE_AI:
-        agent = OpenAIAgent(MODEL_NAME)
-    else:
-        agent = DummyAgent()
+    # TEXT → datetime に変換するコンバーター
+    def convert_datetime(text):
+        return datetime.fromisoformat(text.decode())
 
-    chat_history_state = ListState([])
+    sqlite3.register_adapter(datetime, adapt_datetime)
+    sqlite3.register_converter("DATETIME", convert_datetime)
+    with sqlite3.connect("chat.db", detect_types=sqlite3.PARSE_DECLTYPES) as conn:
+        page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
+        page.title = "Flet Chat"
+        # page.window.width = 1000
+        # page.window.height = 800
+        chat_id = str(uuid.uuid4())
+        chat_started_at = datetime.now()
 
-    file_picker = FileLoader(chat_history_state, app_agent, agent)
-    page.overlay.append(file_picker)
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS chat (id STRING PRIMARY KEY, created_at DATETIME);"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message (
+                id STRING PRIMARY KEY,
+                created_at DATETIME,
+                chat_id STRING,
+                role STRING,
+                content_type STRING,
+                content TEXT,
+                system_content TEXT
+            );
+        """
+        )
+        conn.execute(
+            "INSERT INTO chat (id, created_at) VALUES (?, ?);",
+            (chat_id, chat_started_at),
+        )
+        conn.commit()
 
-    user_message = UserMessage(
-        history_state=chat_history_state,
-        user=human,
-        agent=agent,
-    )
+        human = User(USER_NAME, ft.Colors.GREEN)
+        app_agent = System("App", ft.Colors.GREY)
+        agent: Agent
+        if not DISABLE_AI:
+            agent = OpenAIAgent(MODEL_NAME)
+        else:
+            agent = DummyAgent()
 
-    page.add(
-        ft.Container(
-            content=ChatHisiory(chat_history_state, human),
-            border=ft.border.all(1, ft.Colors.OUTLINE),
-            border_radius=5,
-            padding=10,
-            expand=True,
-        ),
-        ft.Row(
-            [
-                ft.IconButton(
-                    icon=ft.Icons.ADD,
-                    tooltip="Upload file",
-                    on_click=lambda _: file_picker.pick_files(allow_multiple=True),
-                ),
-                user_message,
-                ft.IconButton(
-                    icon=ft.Icons.SEND_ROUNDED,
-                    tooltip="Send message",
-                    on_click=user_message.on_submit_func,
-                ),
-            ]
-        ),
-    )
+        chat_history_state = ListState([])
+
+        file_picker = FileLoader(chat_history_state, app_agent, agent)
+        page.overlay.append(file_picker)
+
+        user_message = UserMessage(
+            chat_id=chat_id,
+            history_state=chat_history_state,
+            user=human,
+            agent=agent,
+            conn=conn,
+        )
+
+        page.add(
+            ft.Container(
+                content=ChatHisiory(chat_history_state, human),
+                border=ft.border.all(1, ft.Colors.OUTLINE),
+                border_radius=5,
+                padding=10,
+                expand=True,
+            ),
+            ft.Row(
+                [
+                    ft.IconButton(
+                        icon=ft.Icons.ADD,
+                        tooltip="Upload file",
+                        on_click=lambda _: file_picker.pick_files(allow_multiple=True),
+                    ),
+                    user_message,
+                    ft.IconButton(
+                        icon=ft.Icons.SEND_ROUNDED,
+                        tooltip="Send message",
+                        on_click=user_message.on_submit_func,
+                    ),
+                ]
+            ),
+        )
 
 
 if __name__ == "__main__":
