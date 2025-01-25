@@ -4,12 +4,13 @@ import uuid
 
 import flet as ft
 import pdfplumber
+from loguru import logger
 
 from db import DB
 from tables import MessageTableRow
 from messages import Message
 from roles import User, System, Agent
-from state import ListState
+from state import State, ListState
 
 
 class ChatMessage(ft.Row):
@@ -54,7 +55,7 @@ class FileLoader(ft.FilePicker):
         history_state: ListState,
         app_agent: System,
         agent: Agent,
-        chat_id: str,
+        chat_id: State,
     ):
         super().__init__()
         self.chat_id = chat_id
@@ -103,7 +104,7 @@ class FileLoader(ft.FilePicker):
             MessageTableRow(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
-                chat_id=self.chat_id,
+                chat_id=self.chat_id.get(),
                 role="App",
                 content_type=file_type,
                 content=content,
@@ -114,7 +115,7 @@ class FileLoader(ft.FilePicker):
 class UserMessage(ft.TextField):
     def __init__(
         self,
-        chat_id: str,
+        chat_id: State,
         history_state: ListState,
         user: User,
         agent: Agent,
@@ -149,7 +150,7 @@ class UserMessage(ft.TextField):
             MessageTableRow(
                 id=id,
                 created_at=created_at,
-                chat_id=self.chat_id,
+                chat_id=self.chat_id.get(),
                 role=self.user.name,
                 content_type=user_message.content_type,
                 content=user_message.content,
@@ -180,7 +181,7 @@ class UserMessage(ft.TextField):
                 MessageTableRow(
                     id=str(uuid.uuid4()),
                     created_at=datetime.now(),
-                    chat_id=self.chat_id,
+                    chat_id=self.chat_id.get(),
                     role="Agent",
                     content_type="text",
                     content=agent_message,
@@ -215,7 +216,7 @@ class MainView(ft.Column):
         database: DB,
         chat_history_state: ListState,
         file_picker: FileLoader,
-        chat_id: str,
+        chat_id: State,
     ):
         super().__init__()
 
