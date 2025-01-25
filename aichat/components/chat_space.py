@@ -48,8 +48,17 @@ class ChatMessage(ft.Row):
 
 
 class FileLoader(ft.FilePicker):
-    def __init__(self, history_state: ListState, app_agent: System, agent: Agent):
+    def __init__(
+        self,
+        database: DB,
+        history_state: ListState,
+        app_agent: System,
+        agent: Agent,
+        chat_id: str,
+    ):
         super().__init__()
+        self.chat_id = chat_id
+        self.database = database
         self.on_result = self.load_file
 
         self.app_agent = app_agent
@@ -78,17 +87,28 @@ class FileLoader(ft.FilePicker):
                     system_content = d.read()
                 file_type = "text"
 
+            content = f"Uploaded: {f.name}"
             self.history_state.append(
                 ChatMessage(
                     Message(
                         self.app_agent,
                         file_type,
-                        content=f"Uploaded: {f.name}",
+                        content=content,
                         system_content=system_content,
                     )
                 )
             )
             self.update()
+
+            MessageTableRow(
+                id=str(uuid.uuid4()),
+                created_at=datetime.now(),
+                chat_id=self.chat_id,
+                role="App",
+                content_type=file_type,
+                content=content,
+                system_content=system_content,
+            ).insert_into(self.database)
 
 
 class UserMessage(ft.TextField):
@@ -178,7 +198,6 @@ class ChatHisiory(ft.ListView):
         self.history_state = history_state
 
         self.user = user
-        self.bind()
 
     def bind(self):
         def bind_func():

@@ -6,6 +6,7 @@ import flet as ft
 from state import ListState
 from roles import Agent, DummyAgent, OpenAIAgent, User, System
 from components.chat_space import MainView, FileLoader
+from components.left_side_bar import LeftSideBar
 
 from tables import ChatTableRow
 from db import DB
@@ -13,14 +14,6 @@ from db import DB
 USER_NAME = "Yudai"
 DISABLE_AI = False
 MODEL_NAME = "gpt-4o-mini"
-
-
-class PastChatList(ft.ListView):
-    def __init__(self):
-        super().__init__()
-        self.expand = True
-        self.auto_scroll = True
-        self.spacing = 10
 
 
 def main(page: ft.Page, database: DB):
@@ -40,28 +33,13 @@ def main(page: ft.Page, database: DB):
         agent = DummyAgent()
 
     chat_history_state = ListState([])
-
-    file_picker = FileLoader(chat_history_state, app_agent, agent)
+    file_picker = FileLoader(database, chat_history_state, app_agent, agent, chat_id)
     page.overlay.append(file_picker)
-
-    past_chat_list = PastChatList()
-
-    for past_chat in database.get_past_chat_list():
-        t = past_chat[1]
-        if len(t) > 20:
-            t = t[:20] + "..."
-        past_chat_list.controls.append(ft.Text(t))
 
     page.add(
         ft.Row(
             [
-                ft.Container(
-                    content=past_chat_list,
-                    border=ft.border.all(1, ft.Colors.OUTLINE),
-                    border_radius=5,
-                    padding=10,
-                    width=200,
-                ),
+                LeftSideBar(db=database),
                 MainView(
                     human, agent, database, chat_history_state, file_picker, chat_id
                 ),
