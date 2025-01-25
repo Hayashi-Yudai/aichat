@@ -1,6 +1,5 @@
 import base64
 from datetime import datetime
-import sqlite3
 import uuid
 
 import flet as ft
@@ -150,6 +149,14 @@ class ChatHisiory(ft.ListView):
         self.history_state.bind(bind_func)
 
 
+class PastChatList(ft.ListView):
+    def __init__(self):
+        super().__init__()
+        self.expand = True
+        self.auto_scroll = True
+        self.spacing = 10
+
+
 class FileLoader(ft.FilePicker):
     def __init__(self, history_state: ListState, app_agent: System, agent: Agent):
         super().__init__()
@@ -197,8 +204,6 @@ class FileLoader(ft.FilePicker):
 def main(page: ft.Page, database: DB):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
-    # page.window.width = 1000
-    # page.window.height = 800
 
     chat_id = str(uuid.uuid4())
     chat_started_at = datetime.now()
@@ -225,29 +230,56 @@ def main(page: ft.Page, database: DB):
         database=database,
     )
 
+    past_chat_list = PastChatList()
+
+    for past_chat in database.get_past_chat_list():
+        t = past_chat[1]
+        if len(t) > 20:
+            t = t[:20] + "..."
+        past_chat_list.controls.append(ft.Text(t))
+
     page.add(
-        ft.Container(
-            content=ChatHisiory(chat_history_state, human),
-            border=ft.border.all(1, ft.Colors.OUTLINE),
-            border_radius=5,
-            padding=10,
-            expand=True,
-        ),
         ft.Row(
             [
-                ft.IconButton(
-                    icon=ft.Icons.ADD,
-                    tooltip="Upload file",
-                    on_click=lambda _: file_picker.pick_files(allow_multiple=True),
+                ft.Container(
+                    content=past_chat_list,
+                    border=ft.border.all(1, ft.Colors.OUTLINE),
+                    border_radius=5,
+                    padding=10,
+                    width=200,
                 ),
-                user_message,
-                ft.IconButton(
-                    icon=ft.Icons.SEND_ROUNDED,
-                    tooltip="Send message",
-                    on_click=user_message.on_submit_func,
+                ft.Column(
+                    [
+                        ft.Container(
+                            content=ChatHisiory(chat_history_state, human),
+                            border=ft.border.all(1, ft.Colors.OUTLINE),
+                            border_radius=5,
+                            padding=10,
+                            expand=True,
+                        ),
+                        ft.Row(
+                            [
+                                ft.IconButton(
+                                    icon=ft.Icons.ADD,
+                                    tooltip="Upload file",
+                                    on_click=lambda _: file_picker.pick_files(
+                                        allow_multiple=True
+                                    ),
+                                ),
+                                user_message,
+                                ft.IconButton(
+                                    icon=ft.Icons.SEND_ROUNDED,
+                                    tooltip="Send message",
+                                    on_click=user_message.on_submit_func,
+                                ),
+                            ]
+                        ),
+                    ],
+                    expand=True,
                 ),
-            ]
-        ),
+            ],
+            expand=True,
+        )
     )
 
 

@@ -36,3 +36,31 @@ class DB:
 
     def get_connect(self):
         return sqlite3.connect(self.db_name, detect_types=sqlite3.PARSE_DECLTYPES)
+
+    def get_past_chat_list(self):
+        with self.get_connect() as conn:
+            cursor = conn.execute(
+                """
+                WITH
+                chat_with_message AS (
+                    SELECT
+                        chat.id,
+                        message.content,
+                        RANK() OVER (PARTITION BY chat.id ORDER BY message.created_at) AS sequence,
+                        chat.created_at
+                    FROM chat
+                    INNER JOIN message
+                        ON chat.id = message.chat_id
+                )
+
+                SELECT
+                    *
+                FROM chat_with_message
+                WHERE
+                    sequence = 1
+                ORDER BY
+                    created_at
+                ;
+            """
+            )
+            return cursor.fetchall()
