@@ -35,13 +35,12 @@ def main(page: ft.Page, database: DB):
 
     def chat_id_bind():
         logger.info(f"Chat ID: {chat_id.get()}")
-        role_map = {USER_NAME: human, "System": app_agent, "Agent": agent}
+        role_map = {USER_NAME: human, "App": app_agent, "Agent": agent}
         _chat_messages = database.get_chat_messages_by_chat_id(chat_id)
         _chat_messages = [
             ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
         ]
 
-        # FIXME: この時点ではchat_history_state._bindが空になっている
         chat_history_state.set_value(_chat_messages)
 
         page.update()
@@ -54,14 +53,16 @@ def main(page: ft.Page, database: DB):
     file_picker = FileLoader(database, chat_history_state, app_agent, agent, chat_id)
     page.overlay.append(file_picker)
 
+    left_side_bar = LeftSideBar(db=database, chat_id=chat_id)
+    main_view = MainView(
+        human, agent, database, chat_history_state, file_picker, chat_id
+    )
+
+    chat_history_state.bind(main_view.update_view)
+
     page.add(
         ft.Row(
-            [
-                LeftSideBar(db=database, chat_id=chat_id),
-                MainView(
-                    human, agent, database, chat_history_state, file_picker, chat_id
-                ),
-            ],
+            [left_side_bar, main_view],
             expand=True,
         )
     )

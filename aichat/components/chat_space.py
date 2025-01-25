@@ -200,12 +200,9 @@ class ChatHisiory(ft.ListView):
 
         self.user = user
 
-    def bind(self):
-        def bind_func():
-            self.controls = self.history_state.get()
-            self.update()
-
-        self.history_state.bind(bind_func)
+    def update_view(self):
+        self.controls = self.history_state.get()
+        self.update()
 
 
 class MainView(ft.Column):
@@ -225,9 +222,10 @@ class MainView(ft.Column):
         self.user_message = UserMessage(
             chat_id, chat_history_state, human, agent, database
         )
+        self.chat_history = ChatHisiory(chat_history_state, human)
         self.controls = [
             ft.Container(
-                content=ChatHisiory(chat_history_state, human),
+                content=self.chat_history,
                 border=ft.border.all(1, ft.Colors.OUTLINE),
                 border_radius=5,
                 padding=10,
@@ -249,3 +247,8 @@ class MainView(ft.Column):
                 ]
             ),
         ]
+
+    def update_view(self):
+        logger.info("Updating view")
+
+        self.chat_history.update_view()
