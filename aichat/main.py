@@ -40,8 +40,8 @@ def main(page: ft.Page, database: DB):
         _chat_messages = [
             ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
         ]
-        breakpoint()
 
+        # FIXME: この時点ではchat_history_state._bindが空になっている
         chat_history_state.set_value(_chat_messages)
 
         page.update()
