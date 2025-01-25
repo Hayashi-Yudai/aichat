@@ -59,7 +59,7 @@ class DB:
                 WHERE
                     sequence = 1
                 ORDER BY
-                    created_at
+                    created_at DESC
                 ;
             """
             )
