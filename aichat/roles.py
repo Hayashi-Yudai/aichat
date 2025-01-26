@@ -83,3 +83,26 @@ class DeepSeekAgent(Role):
             return ""
 
         return content
+
+
+class GeminiAgent(Role):
+    def __init__(self, model_name: str):
+        super().__init__("Assistant", ft.Colors.BLUE)
+
+        self.org = "google"
+        self.model_name = model_name
+        self.client = OpenAI(
+            api_key=os.environ.get("GEMINI_API_KEY"),
+            base_url="https://generativelanguage.googleapis.com/v1beta/",
+        )
+
+    def get_response(self, message: list[ChatCompletionMessageParam]):
+        chat_completion = self.client.chat.completions.create(
+            messages=message,
+            model=self.model_name,
+        )
+        content = chat_completion.choices[0].message.content
+        if content is None:
+            return ""
+
+        return content

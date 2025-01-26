@@ -6,7 +6,15 @@ from loguru import logger
 
 from messages import Message
 from state import ListState, PrimitiveState
-from roles import Agent, DeepSeekAgent, DummyAgent, OpenAIAgent, User, System
+from roles import (
+    Agent,
+    # DeepSeekAgent,
+    DummyAgent,
+    # OpenAIAgent,
+    GeminiAgent,
+    User,
+    System,
+)
 from components.chat_space import MainView, FileLoader, ChatMessage
 from components.left_side_bar import LeftSideBar
 
@@ -16,7 +24,8 @@ from db import DB
 USER_NAME = "Yudai"
 DISABLE_AI = False
 # MODEL_NAME = "gpt-4o-mini"
-MODEL_NAME = "deepseek-chat"
+# MODEL_NAME = "deepseek-chat"
+MODEL_NAME = "gemini-1.5-flash"
 
 
 def main(page: ft.Page, database: DB):
@@ -31,7 +40,8 @@ def main(page: ft.Page, database: DB):
     agent: Agent
     if not DISABLE_AI:
         # agent = OpenAIAgent(MODEL_NAME)
-        agent = DeepSeekAgent(MODEL_NAME)
+        # agent = DeepSeekAgent(MODEL_NAME)
+        agent = GeminiAgent(MODEL_NAME)
     else:
         agent = DummyAgent()
 

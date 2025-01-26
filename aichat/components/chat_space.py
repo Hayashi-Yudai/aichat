@@ -171,6 +171,12 @@ class UserMessage(ft.TextField):
                 agent_input = [
                     c.message.to_deepseek_message() for c in self.history_state.get()
                 ]
+            elif self.agent.org == "google":  # type: ignore
+                agent_input = [
+                    # FIXME: 後で直す
+                    c.message.to_openai_message()
+                    for c in self.history_state.get()
+                ]
             else:
                 logger.warning("Unknown agent")
                 agent_input = []
