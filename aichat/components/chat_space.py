@@ -163,9 +163,17 @@ class UserMessage(ft.TextField):
             self.focus()
 
             # FIXME: ここでエージェントごとの分岐を処理するのは微妙
-            agent_input = [
-                c.message.to_openai_message() for c in self.history_state.get()
-            ]
+            if self.agent.org == "openai":  # type: ignore
+                agent_input = [
+                    c.message.to_openai_message() for c in self.history_state.get()
+                ]
+            elif self.agent.org == "deepseek":  # type: ignore
+                agent_input = [
+                    c.message.to_deepseek_message() for c in self.history_state.get()
+                ]
+            else:
+                logger.warning("Unknown agent")
+                agent_input = []
             agent_message = self.agent.get_response(agent_input)
             if agent_message is not None:
                 self.history_state.append(
@@ -249,6 +257,4 @@ class MainView(ft.Column):
         ]
 
     def update_view(self):
-        logger.info("Updating view")
-
         self.chat_history.update_view()

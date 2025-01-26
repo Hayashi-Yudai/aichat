@@ -6,7 +6,7 @@ from loguru import logger
 
 from messages import Message
 from state import ListState, PrimitiveState
-from roles import Agent, DummyAgent, OpenAIAgent, User, System
+from roles import Agent, DeepSeekAgent, DummyAgent, OpenAIAgent, User, System
 from components.chat_space import MainView, FileLoader, ChatMessage
 from components.left_side_bar import LeftSideBar
 
@@ -29,11 +29,15 @@ def main(page: ft.Page, database: DB):
     app_agent = System("App", ft.Colors.GREY)
     agent: Agent
     if not DISABLE_AI:
-        agent = OpenAIAgent(MODEL_NAME)
+        # agent = OpenAIAgent(MODEL_NAME)
+        agent = DeepSeekAgent("deepseek-chat")
     else:
         agent = DummyAgent()
 
     def chat_id_bind():
+        """
+        chat_id が変更されたらUIに表示されるチャット履歴を更新する
+        """
         logger.info(f"Chat ID: {chat_id.get()}")
         role_map = {USER_NAME: human, "App": app_agent, "Agent": agent}
         _chat_messages = database.get_chat_messages_by_chat_id(chat_id)
