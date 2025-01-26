@@ -1,5 +1,6 @@
 import uuid
 import datetime
+from typing import Callable
 
 import flet as ft
 from loguru import logger
@@ -64,6 +65,31 @@ class LeftSideBarContainer(ft.Container):
         self.expand = True
 
 
+class NewChatButton(ft.IconButton):
+    def __init__(self, on_click: Callable):
+        super().__init__()
+
+        self.icon = ft.Icons.OPEN_IN_NEW_ROUNDED
+        self.tooltip = "New chat"
+        self.on_click = on_click
+
+
+class ModelSelector(ft.Dropdown):
+    def __init__(self, on_change: Callable):
+        super().__init__()
+
+        self.expand = False
+        self.width = 150
+
+        self.options = [
+            ft.dropdown.Option("DeepSeek", "DeepSeek"),
+            ft.dropdown.Option("OpenAI", "OpenAI"),
+            ft.dropdown.Option("Dummy", "Dummy"),
+        ]
+        self.value = "DeepSeek"
+        self.on_change = on_change
+
+
 class LeftSideBar(ft.Column):
     def __init__(self, db: DB, chat_id: State):
         super().__init__()
@@ -75,10 +101,12 @@ class LeftSideBar(ft.Column):
 
         self.chat_list = PastChatList(db, chat_id)
         self.controls = [
-            ft.IconButton(
-                icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
-                tooltip="New chat",
-                on_click=self.create_new_chat,
+            ft.Row(
+                [
+                    NewChatButton(on_click=self.create_new_chat),
+                    ModelSelector(on_change=lambda e: None),
+                ],
+                expand=False,
             ),
             LeftSideBarContainer(content=self.chat_list),
         ]
