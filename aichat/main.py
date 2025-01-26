@@ -5,7 +5,7 @@ import flet as ft
 from loguru import logger
 
 from messages import Message
-from state import ListState, PrimitiveState
+from state import PrimitiveState
 from roles import (
     Agent,
     # DeepSeekAgent,
@@ -33,7 +33,7 @@ def main(page: ft.Page, database: DB):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
 
-    chat_history_state = ListState([])  # list[ChatMessage]
+    page.session.set("chat_history", [])  # list[ChatMessage]
 
     human = User(USER_NAME, ft.Colors.GREEN)
     app_agent = System("App", ft.Colors.GREY)
@@ -56,8 +56,8 @@ def main(page: ft.Page, database: DB):
             ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
         ]
 
-        chat_history_state.set_value(_chat_messages)
-
+        page.session.set("chat_history", _chat_messages)
+        page.pubsub.send_all_on_topic("chat_history", None)
         page.update()
 
     chat_id = PrimitiveState(str(uuid.uuid4()))
@@ -65,17 +65,13 @@ def main(page: ft.Page, database: DB):
     chat_started_at = datetime.now()
     ChatTableRow(chat_id.get(), chat_started_at).insert_into(database)
 
-    file_picker = FileLoader(database, chat_history_state, app_agent, agent, chat_id)
+    file_picker = FileLoader(page, database, app_agent, agent, chat_id)
     page.overlay.append(file_picker)
 
     left_side_bar = LeftSideBar(db=database, chat_id=chat_id)
-    main_view = MainView(
-        human, agent, database, chat_history_state, file_picker, chat_id
-    )
+    main_view = MainView(page, human, agent, database, file_picker, chat_id)
 
     chat_id.bind(left_side_bar.update_view)
-
-    chat_history_state.bind(main_view.update_view)
 
     page.add(
         ft.Row(

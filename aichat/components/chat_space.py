@@ -10,7 +10,7 @@ from db import DB
 from tables import MessageTableRow
 from messages import Message
 from roles import User, System, Agent
-from state import State, ListState
+from state import State
 
 
 class ChatMessage(ft.Row):
@@ -51,8 +51,8 @@ class ChatMessage(ft.Row):
 class FileLoader(ft.FilePicker):
     def __init__(
         self,
+        page: ft.Page,
         database: DB,
-        history_state: ListState,
         app_agent: System,
         agent: Agent,
         chat_id: State,
@@ -64,8 +64,6 @@ class FileLoader(ft.FilePicker):
 
         self.app_agent = app_agent
         self.agent = agent
-
-        self.history_state = history_state
 
     def load_file(self, e: ft.FilePickerResultEvent):
         if e.files is None:
@@ -89,7 +87,8 @@ class FileLoader(ft.FilePicker):
                 file_type = "text"
 
             content = f"Uploaded: {f.name}"
-            self.history_state.append(
+            _history_state = self.page.session.get("chat_history")
+            _history_state.append(
                 ChatMessage(
                     Message(
                         self.app_agent,
@@ -99,6 +98,7 @@ class FileLoader(ft.FilePicker):
                     )
                 )
             )
+            self.page.session.set("chat_history", _history_state)
             self.update()
 
             MessageTableRow(
@@ -115,8 +115,8 @@ class FileLoader(ft.FilePicker):
 class UserMessage(ft.TextField):
     def __init__(
         self,
+        page: ft.Page,
         chat_id: State,
-        history_state: ListState,
         user: User,
         agent: Agent,
         database: DB,
@@ -133,7 +133,7 @@ class UserMessage(ft.TextField):
         self.expand = True
         self.value = ""
 
-        self.history_state = history_state
+        self.page = page
 
         self.on_submit = self.on_submit_func
 
@@ -157,8 +157,12 @@ class UserMessage(ft.TextField):
                 system_content=user_message.system_content,
             ).insert_into(self.database)
 
-            self.history_state.append(ChatMessage(user_message))
+            _chat_history = self.page.session.get("chat_history")
+            _chat_history.append(ChatMessage(user_message))
+            self.page.session.set("chat_history", _chat_history)
             self.value = ""
+
+            self.page.pubsub.send_all_on_topic("chat_history", None)
 
             self.focus()
 
@@ -175,14 +179,15 @@ class UserMessage(ft.TextField):
                 agent_input = [
                     # FIXME: 後で直す
                     c.message.to_openai_message()
-                    for c in self.history_state.get()
+                    for c in self.page.session.get("chat_history")
                 ]
             else:
                 logger.warning("Unknown agent")
                 agent_input = []
             agent_message = self.agent.get_response(agent_input)
             if agent_message is not None:
-                self.history_state.append(
+                _chat_history = self.page.session.get("chat_history")
+                _chat_history.append(
                     ChatMessage(
                         Message(
                             role=self.agent,  # type: ignore
@@ -192,6 +197,8 @@ class UserMessage(ft.TextField):
                         )
                     )
                 )
+                self.page.session.set("chat_history", _chat_history)
+                self.page.pubsub.send_all_on_topic("chat_history", None)
                 MessageTableRow(
                     id=str(uuid.uuid4()),
                     created_at=datetime.now(),
@@ -204,28 +211,28 @@ class UserMessage(ft.TextField):
 
 
 class ChatHisiory(ft.ListView):
-    def __init__(self, history_state: ListState, user: User):
+    def __init__(self, page: ft.Page, user: User):
         super().__init__()
         self.expand = True
-        # self.auto_scroll = True
         self.spacing = 10
 
-        self.history_state = history_state
-
         self.user = user
+        self.page = page
 
-    def update_view(self):
-        self.controls = self.history_state.get()
+        self.page.pubsub.subscribe_topic("chat_history", self.update_view)
+
+    def update_view(self, topic, message):
+        self.controls = self.page.session.get("chat_history")
         self.update()
 
 
 class MainView(ft.Column):
     def __init__(
         self,
+        page: ft.Page,
         human: User,
         agent: Agent,
         database: DB,
-        chat_history_state: ListState,
         file_picker: FileLoader,
         chat_id: State,
     ):
@@ -233,10 +240,8 @@ class MainView(ft.Column):
 
         self.expand = True
 
-        self.user_message = UserMessage(
-            chat_id, chat_history_state, human, agent, database
-        )
-        self.chat_history = ChatHisiory(chat_history_state, human)
+        self.user_message = UserMessage(page, chat_id, human, agent, database)
+        self.chat_history = ChatHisiory(page, human)
         self.controls = [
             ft.Container(
                 content=self.chat_history,
