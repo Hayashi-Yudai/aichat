@@ -201,7 +201,7 @@ class ChatHisiory(ft.ListView):
     def __init__(self, history_state: ListState, user: User):
         super().__init__()
         self.expand = True
-        self.auto_scroll = True
+        # self.auto_scroll = True
         self.spacing = 10
 
         self.history_state = history_state

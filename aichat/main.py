@@ -15,7 +15,8 @@ from db import DB
 
 USER_NAME = "Yudai"
 DISABLE_AI = False
-MODEL_NAME = "gpt-4o-mini"
+# MODEL_NAME = "gpt-4o-mini"
+MODEL_NAME = "deepseek-chat"
 
 
 def main(page: ft.Page, database: DB):
@@ -30,7 +31,7 @@ def main(page: ft.Page, database: DB):
     agent: Agent
     if not DISABLE_AI:
         # agent = OpenAIAgent(MODEL_NAME)
-        agent = DeepSeekAgent("deepseek-chat")
+        agent = DeepSeekAgent(MODEL_NAME)
     else:
         agent = DummyAgent()
 
@@ -61,6 +62,8 @@ def main(page: ft.Page, database: DB):
     main_view = MainView(
         human, agent, database, chat_history_state, file_picker, chat_id
     )
+
+    chat_id.bind(left_side_bar.update_view)
 
     chat_history_state.bind(main_view.update_view)
 

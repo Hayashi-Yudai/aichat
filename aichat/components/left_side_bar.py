@@ -1,8 +1,12 @@
+import uuid
+import datetime
+
 import flet as ft
 from loguru import logger
 
 from db import DB
 from state import State
+from tables import ChatTableRow
 
 
 class PastChatItem(ft.Container):
@@ -32,7 +36,7 @@ class PastChatList(ft.ListView):
     def __init__(self, db: DB, chat_id: State):
         super().__init__()
         self.expand = True
-        self.auto_scroll = True
+        # self.auto_scroll = True
         self.spacing = 10
 
         self.db = db
@@ -41,10 +45,13 @@ class PastChatList(ft.ListView):
         self._load_past_chat_list()
 
     def _load_past_chat_list(self):
+        self.controls = []
         for past_chat in self.db.get_past_chat_list():
             chat_id = past_chat[0]
             t = past_chat[1]
-            self.controls.append(PastChatItem(chat_id=chat_id, text=t, chat_id_state=self.chat_id_state))
+            self.controls.append(
+                PastChatItem(chat_id=chat_id, text=t, chat_id_state=self.chat_id_state)
+            )
 
 
 class LeftSideBarContainer(ft.Container):
@@ -66,6 +73,27 @@ class LeftSideBar(ft.Column):
         self.border = ft.border.all(1, ft.Colors.OUTLINE)
         self.border_radius = 5
 
-        self.controls = [LeftSideBarContainer(content=PastChatList(db, chat_id))]
+        self.chat_list = PastChatList(db, chat_id)
+        self.controls = [
+            ft.IconButton(
+                icon=ft.Icons.OPEN_IN_NEW_ROUNDED,
+                tooltip="New chat",
+                on_click=self.create_new_chat,
+            ),
+            LeftSideBarContainer(content=self.chat_list),
+        ]
 
         self.chat_id = chat_id
+        self.db = db
+
+    def create_new_chat(self, e: ft.ControlEvent):
+        logger.info("Creating new chat")
+        new_chat_id = str(uuid.uuid4())
+        chat_started_at = datetime.datetime.now()
+
+        self.chat_id.set_value(new_chat_id)
+        ChatTableRow(new_chat_id, chat_started_at).insert_into(self.db)
+
+    def update_view(self):
+        self.chat_list._load_past_chat_list()
+        self.chat_list.update()
