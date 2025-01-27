@@ -3,6 +3,7 @@ import os
 from typing import Any, Protocol
 
 import flet as ft
+from loguru import logger
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -28,6 +29,10 @@ class Agent(Protocol):
 
     def get_response(self, message: Any) -> str: ...
 
+    def transform_to_agent_message(
+        self, role_name: str, content_type: str, system_content: str
+    ) -> Any: ...
+
 
 class DummyAgent(Role):
     """ダミーのエージェントを表すクラス"""
@@ -38,6 +43,14 @@ class DummyAgent(Role):
 
     def get_response(self, message: Any):
         return "Test"
+
+    def transform_to_agent_message(
+        self, role_name: str, content_type: str, system_content: str
+    ) -> Any:
+        return {
+            "role": "assistant" if role_name == "Assistant" else "user",
+            "content": system_content,
+        }
 
 
 class OpenAIAgent(Role):
@@ -60,6 +73,27 @@ class OpenAIAgent(Role):
             return ""
 
         return content
+
+    def transform_to_agent_message(
+        self, role_name: str, content_type: str, system_content: str
+    ) -> Any:
+        if content_type == "text":
+            return {
+                "role": "assistant" if role_name == "Assistant" else "user",
+                "content": system_content,
+            }
+        elif content_type == "image_url":
+            return {
+                "role": "assistant" if role_name == "Assistant" else "user",
+                "content": [
+                    {
+                        "type": content_type,
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{system_content}"
+                        },
+                    }
+                ],
+            }
 
 
 class DeepSeekAgent(Role):
@@ -84,6 +118,19 @@ class DeepSeekAgent(Role):
 
         return content
 
+    def transform_to_agent_message(
+        self, role_name: str, content_type: str, system_content: str
+    ) -> Any:
+        if content_type != "text":
+            logger.error("DeepSeek only supports text messages")
+            return {}
+        message = {
+            "role": "assistant" if role_name == "Assistant" else "user",
+            "content": system_content,
+        }
+
+        return message
+
 
 class GeminiAgent(Role):
     def __init__(self, model_name: str):
@@ -106,3 +153,16 @@ class GeminiAgent(Role):
             return ""
 
         return content
+
+    def transform_to_agent_message(
+        self, role_name: str, content_type: str, system_content: str
+    ) -> Any:
+        if content_type != "text":
+            logger.error("Gemini only supports text messages")
+            return {}
+        message = {
+            "role": "assistant" if role_name == "Assistant" else "user",
+            "content": system_content,
+        }
+
+        return message

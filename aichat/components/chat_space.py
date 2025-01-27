@@ -9,7 +9,6 @@ from loguru import logger
 from db import DB
 from tables import MessageTableRow
 from messages import Message
-from roles import User, System
 
 
 class ChatMessage(ft.Row):
@@ -52,13 +51,11 @@ class FileLoader(ft.FilePicker):
         self,
         page: ft.Page,
         database: DB,
-        app_agent: System,
     ):
         super().__init__()
         self.database = database
         self.on_result = self.load_file
 
-        self.app_agent = app_agent
         self.page = page
 
     def load_file(self, e: ft.FilePickerResultEvent):
@@ -87,7 +84,7 @@ class FileLoader(ft.FilePicker):
             _history_state.append(
                 ChatMessage(
                     Message(
-                        self.app_agent,
+                        self.page.session.get("app_agent"),
                         file_type,
                         content=content,
                         system_content=system_content,
@@ -113,7 +110,6 @@ class UserMessage(ft.TextField):
     def __init__(
         self,
         page: ft.Page,
-        user: User,
         database: DB,
     ):
         super().__init__()
@@ -127,15 +123,15 @@ class UserMessage(ft.TextField):
         self.value = ""
 
         self.page = page
+        self.database = database
 
         self.on_submit = self.on_submit_func
 
-        self.user = user
-        self.database = database
-
     def on_submit_func(self, e: ft.ControlEvent):
         if self.value is not None and self.value != "":
-            user_message = Message(self.user, "text", self.value, self.value)
+            user_message = Message(
+                self.page.session.get("user"), "text", self.value, self.value
+            )
             id = str(uuid.uuid4())
             created_at = datetime.now()
 
@@ -143,7 +139,7 @@ class UserMessage(ft.TextField):
                 id=id,
                 created_at=created_at,
                 chat_id=self.page.session.get("chat_id"),
-                role=self.user.name,
+                role=self.page.session.get("user").name,
                 content_type=user_message.content_type,
                 content=user_message.content,
                 system_content=user_message.system_content,
@@ -160,16 +156,8 @@ class UserMessage(ft.TextField):
 
             # FIXME: ここでエージェントごとの分岐を処理するのは微妙
             agent = self.page.session.get("agent")
-            if agent.org == "openai":  # type: ignore
-                agent_input = [c.message.to_openai_message() for c in _chat_history]
-            elif agent.org == "deepseek":  # type: ignore
-                agent_input = [c.message.to_deepseek_message() for c in _chat_history]
-            elif agent.org == "google":  # type: ignore
-                # FIXME: 後で直す
-                agent_input = [c.message.to_openai_message() for c in _chat_history]
-            else:
-                logger.warning("Unknown agent")
-                agent_input = []
+            agent_input = [c.message.to_agent_message(agent) for c in _chat_history]
+            # logger.debug(agent_input)
 
             agent_message = agent.get_response(agent_input)
             if agent_message is not None:
@@ -198,12 +186,11 @@ class UserMessage(ft.TextField):
 
 
 class ChatHisiory(ft.ListView):
-    def __init__(self, page: ft.Page, user: User, database: DB):
+    def __init__(self, page: ft.Page, database: DB):
         super().__init__()
         self.expand = True
         self.spacing = 10
 
-        self.user = user
         self.database = database
         self.page = page
 
@@ -216,9 +203,10 @@ class ChatHisiory(ft.ListView):
         self.update()
 
     def update_view_by_chat_id(self, topic, chat_id):
+        user = self.page.session.get("user")
         role_map = {
-            self.user.name: self.user,
-            "App": self.user,
+            user.name: user,
+            "App": self.page.session.get("app_agent"),
             "Agent": self.page.session.get("agent"),
         }
         _chat_messages = self.database.get_chat_messages_by_chat_id(chat_id)
@@ -235,7 +223,6 @@ class MainView(ft.Column):
     def __init__(
         self,
         page: ft.Page,
-        human: User,
         database: DB,
         file_picker: FileLoader,
     ):
@@ -243,8 +230,8 @@ class MainView(ft.Column):
 
         self.expand = True
 
-        self.user_message = UserMessage(page, human, database)
-        self.chat_history = ChatHisiory(page, human, database)
+        self.user_message = UserMessage(page, database)
+        self.chat_history = ChatHisiory(page, database)
         self.controls = [
             ft.Container(
                 content=self.chat_history,

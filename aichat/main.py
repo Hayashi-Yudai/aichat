@@ -6,15 +6,7 @@ from loguru import logger
 
 from agent_config import model_agent_mapping, DEFAULT_MODEL
 from messages import Message
-from roles import (
-    Agent,
-    # DeepSeekAgent,
-    DummyAgent,
-    # OpenAIAgent,
-    GeminiAgent,
-    User,
-    System,
-)
+from roles import User, System
 from components.chat_space import MainView, FileLoader, ChatMessage
 from components.left_side_bar import LeftSideBar
 
@@ -22,10 +14,6 @@ from tables import ChatTableRow
 from db import DB
 
 USER_NAME = "Yudai"
-DISABLE_AI = False
-# MODEL_NAME = "gpt-4o-mini"
-# MODEL_NAME = "deepseek-chat"
-MODEL_NAME = "gemini-1.5-flash"
 
 
 def main(page: ft.Page, database: DB):
@@ -36,23 +24,19 @@ def main(page: ft.Page, database: DB):
     page.session.set("chat_history", [])  # list[ChatMessage]
     page.session.set("chat_id", str(uuid.uuid4()))
     page.session.set("agent", model_agent_mapping(DEFAULT_MODEL))
-
-    human = User(USER_NAME, ft.Colors.GREEN)
-    app_agent = System("App", ft.Colors.GREY)
-    agent: Agent
-    if not DISABLE_AI:
-        # agent = OpenAIAgent(MODEL_NAME)
-        # agent = DeepSeekAgent(MODEL_NAME)
-        agent = GeminiAgent(MODEL_NAME)
-    else:
-        agent = DummyAgent()
+    page.session.set("user", User(USER_NAME, ft.Colors.GREEN))
+    page.session.set("app_agent", System("App", ft.Colors.GREY))
 
     def chat_id_bind(topic, message):
         """
         chat_id が変更されたらUIに表示されるチャット履歴を更新する
         """
         logger.info(f"Chat ID: {page.session.get('chat_id')}")
-        role_map = {USER_NAME: human, "App": app_agent, "Agent": agent}
+        role_map = {
+            USER_NAME: page.session.get("user"),
+            "App": page.session.get("app_agent"),
+            "Agent": page.session.get("agent"),
+        }
         _chat_messages = database.get_chat_messages_by_chat_id(
             page.session.get("chat_id")
         )
@@ -68,11 +52,11 @@ def main(page: ft.Page, database: DB):
     chat_started_at = datetime.now()
     ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
-    file_picker = FileLoader(page, database, app_agent)
+    file_picker = FileLoader(page, database)
     page.overlay.append(file_picker)
 
     left_side_bar = LeftSideBar(page, db=database)
-    main_view = MainView(page, human, database, file_picker)
+    main_view = MainView(page, database, file_picker)
 
     page.add(
         ft.Row(
