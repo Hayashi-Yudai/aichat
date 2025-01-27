@@ -97,6 +97,7 @@ class FileLoader(ft.FilePicker):
                 )
             )
             self.page.session.set("chat_history", _history_state)
+            self.page.pubsub.send_all_on_topic("chat_history", None)
             self.update()
 
             MessageTableRow(
@@ -220,6 +221,7 @@ class ChatHisiory(ft.ListView):
         self.page.pubsub.subscribe_topic("chat_id", self.update_view_by_chat_id)
 
     def update_view(self, topic, message):
+        logger.info("New message recieved. Updating ChatHisotry view.")
         self.controls = self.page.session.get("chat_history")
         self.update()
 
