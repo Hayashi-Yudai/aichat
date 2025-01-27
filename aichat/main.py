@@ -4,6 +4,7 @@ import uuid
 import flet as ft
 from loguru import logger
 
+from agent_config import model_agent_mapping, DEFAULT_MODEL
 from messages import Message
 from roles import (
     Agent,
@@ -34,6 +35,7 @@ def main(page: ft.Page, database: DB):
 
     page.session.set("chat_history", [])  # list[ChatMessage]
     page.session.set("chat_id", str(uuid.uuid4()))
+    page.session.set("agent", model_agent_mapping(DEFAULT_MODEL))
 
     human = User(USER_NAME, ft.Colors.GREEN)
     app_agent = System("App", ft.Colors.GREY)
@@ -66,11 +68,11 @@ def main(page: ft.Page, database: DB):
     chat_started_at = datetime.now()
     ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
-    file_picker = FileLoader(page, database, app_agent, agent)
+    file_picker = FileLoader(page, database, app_agent)
     page.overlay.append(file_picker)
 
     left_side_bar = LeftSideBar(page, db=database)
-    main_view = MainView(page, human, agent, database, file_picker)
+    main_view = MainView(page, human, database, file_picker)
 
     page.add(
         ft.Row(

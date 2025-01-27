@@ -9,7 +9,7 @@ from loguru import logger
 from db import DB
 from tables import MessageTableRow
 from messages import Message
-from roles import User, System, Agent
+from roles import User, System
 
 
 class ChatMessage(ft.Row):
@@ -53,14 +53,12 @@ class FileLoader(ft.FilePicker):
         page: ft.Page,
         database: DB,
         app_agent: System,
-        agent: Agent,
     ):
         super().__init__()
         self.database = database
         self.on_result = self.load_file
 
         self.app_agent = app_agent
-        self.agent = agent
         self.page = page
 
     def load_file(self, e: ft.FilePickerResultEvent):
@@ -116,7 +114,6 @@ class UserMessage(ft.TextField):
         self,
         page: ft.Page,
         user: User,
-        agent: Agent,
         database: DB,
     ):
         super().__init__()
@@ -134,7 +131,6 @@ class UserMessage(ft.TextField):
         self.on_submit = self.on_submit_func
 
         self.user = user
-        self.agent = agent
         self.database = database
 
     def on_submit_func(self, e: ft.ControlEvent):
@@ -163,30 +159,25 @@ class UserMessage(ft.TextField):
             self.focus()
 
             # FIXME: ここでエージェントごとの分岐を処理するのは微妙
-            if self.agent.org == "openai":  # type: ignore
-                agent_input = [
-                    c.message.to_openai_message() for c in self.history_state.get()
-                ]
-            elif self.agent.org == "deepseek":  # type: ignore
-                agent_input = [
-                    c.message.to_deepseek_message() for c in self.history_state.get()
-                ]
-            elif self.agent.org == "google":  # type: ignore
-                agent_input = [
-                    # FIXME: 後で直す
-                    c.message.to_openai_message()
-                    for c in self.page.session.get("chat_history")
-                ]
+            agent = self.page.session.get("agent")
+            if agent.org == "openai":  # type: ignore
+                agent_input = [c.message.to_openai_message() for c in _chat_history]
+            elif agent.org == "deepseek":  # type: ignore
+                agent_input = [c.message.to_deepseek_message() for c in _chat_history]
+            elif agent.org == "google":  # type: ignore
+                # FIXME: 後で直す
+                agent_input = [c.message.to_openai_message() for c in _chat_history]
             else:
                 logger.warning("Unknown agent")
                 agent_input = []
-            agent_message = self.agent.get_response(agent_input)
+
+            agent_message = agent.get_response(agent_input)
             if agent_message is not None:
                 _chat_history = self.page.session.get("chat_history")
                 _chat_history.append(
                     ChatMessage(
                         Message(
-                            role=self.agent,  # type: ignore
+                            role=agent,  # type: ignore
                             content_type="text",
                             content=agent_message,
                             system_content=agent_message,
@@ -207,13 +198,12 @@ class UserMessage(ft.TextField):
 
 
 class ChatHisiory(ft.ListView):
-    def __init__(self, page: ft.Page, user: User, agent: Agent, database: DB):
+    def __init__(self, page: ft.Page, user: User, database: DB):
         super().__init__()
         self.expand = True
         self.spacing = 10
 
         self.user = user
-        self.agent = agent
         self.database = database
         self.page = page
 
@@ -226,7 +216,11 @@ class ChatHisiory(ft.ListView):
         self.update()
 
     def update_view_by_chat_id(self, topic, chat_id):
-        role_map = {self.user.name: self.user, "App": self.user, "Agent": self.agent}
+        role_map = {
+            self.user.name: self.user,
+            "App": self.user,
+            "Agent": self.page.session.get("agent"),
+        }
         _chat_messages = self.database.get_chat_messages_by_chat_id(chat_id)
         _chat_messages = [
             ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
@@ -242,7 +236,6 @@ class MainView(ft.Column):
         self,
         page: ft.Page,
         human: User,
-        agent: Agent,
         database: DB,
         file_picker: FileLoader,
     ):
@@ -250,8 +243,8 @@ class MainView(ft.Column):
 
         self.expand = True
 
-        self.user_message = UserMessage(page, human, agent, database)
-        self.chat_history = ChatHisiory(page, human, agent, database)
+        self.user_message = UserMessage(page, human, database)
+        self.chat_history = ChatHisiory(page, human, database)
         self.controls = [
             ft.Container(
                 content=self.chat_history,

@@ -5,6 +5,7 @@ from typing import Callable
 import flet as ft
 from loguru import logger
 
+from agent_config import model_agent_mapping, DEFAULT_MODEL, MODELS
 from db import DB
 from tables import ChatTableRow
 
@@ -75,19 +76,21 @@ class NewChatButton(ft.IconButton):
 
 
 class ModelSelector(ft.Dropdown):
-    def __init__(self, on_change: Callable):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.expand = False
         self.width = 150
 
-        self.options = [
-            ft.dropdown.Option("DeepSeek", "DeepSeek"),
-            ft.dropdown.Option("OpenAI", "OpenAI"),
-            ft.dropdown.Option("Dummy", "Dummy"),
-        ]
-        self.value = "DeepSeek"
-        self.on_change = on_change
+        self.options = [ft.dropdown.Option(m.model_name) for m in MODELS]
+        self.value = DEFAULT_MODEL
+        self.page = page
+        self.on_change = self.on_change_func
+
+    def on_change_func(self, e: ft.ControlEvent):
+        logger.info(f"Model selected: {self.value}")
+        self.page.session.set("agent", model_agent_mapping(self.value))
+        # self.page.pubsub.send_all_on_topic("agent", None)
 
 
 class LeftSideBar(ft.Column):
@@ -104,7 +107,7 @@ class LeftSideBar(ft.Column):
             ft.Row(
                 [
                     NewChatButton(on_click=self.create_new_chat),
-                    ModelSelector(on_change=lambda e: None),
+                    ModelSelector(page),
                 ],
                 expand=False,
             ),
