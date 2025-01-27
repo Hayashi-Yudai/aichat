@@ -5,7 +5,6 @@ import flet as ft
 from loguru import logger
 
 from messages import Message
-from state import PrimitiveState
 from roles import (
     Agent,
     # DeepSeekAgent,
@@ -34,6 +33,7 @@ def main(page: ft.Page, database: DB):
     page.title = "Flet Chat"
 
     page.session.set("chat_history", [])  # list[ChatMessage]
+    page.session.set("chat_id", str(uuid.uuid4()))
 
     human = User(USER_NAME, ft.Colors.GREEN)
     app_agent = System("App", ft.Colors.GREY)
@@ -45,13 +45,15 @@ def main(page: ft.Page, database: DB):
     else:
         agent = DummyAgent()
 
-    def chat_id_bind():
+    def chat_id_bind(topic, message):
         """
         chat_id が変更されたらUIに表示されるチャット履歴を更新する
         """
-        logger.info(f"Chat ID: {chat_id.get()}")
+        logger.info(f"Chat ID: {page.session.get('chat_id')}")
         role_map = {USER_NAME: human, "App": app_agent, "Agent": agent}
-        _chat_messages = database.get_chat_messages_by_chat_id(chat_id)
+        _chat_messages = database.get_chat_messages_by_chat_id(
+            page.session.get("chat_id")
+        )
         _chat_messages = [
             ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
         ]
@@ -60,18 +62,15 @@ def main(page: ft.Page, database: DB):
         page.pubsub.send_all_on_topic("chat_history", None)
         page.update()
 
-    chat_id = PrimitiveState(str(uuid.uuid4()))
-    chat_id.bind(chat_id_bind)
+    page.pubsub.subscribe_topic("chat_id", chat_id_bind)
     chat_started_at = datetime.now()
-    ChatTableRow(chat_id.get(), chat_started_at).insert_into(database)
+    ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
-    file_picker = FileLoader(page, database, app_agent, agent, chat_id)
+    file_picker = FileLoader(page, database, app_agent, agent)
     page.overlay.append(file_picker)
 
-    left_side_bar = LeftSideBar(db=database, chat_id=chat_id)
-    main_view = MainView(page, human, agent, database, file_picker, chat_id)
-
-    chat_id.bind(left_side_bar.update_view)
+    left_side_bar = LeftSideBar(page, db=database)
+    main_view = MainView(page, human, agent, database, file_picker)
 
     page.add(
         ft.Row(

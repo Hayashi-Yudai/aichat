@@ -3,8 +3,6 @@ import sqlite3
 
 from loguru import logger
 
-from state import State
-
 
 class DB:
     def __init__(self, db_name: str):
@@ -67,7 +65,7 @@ class DB:
             )
             return cursor.fetchall()
 
-    def get_chat_messages_by_chat_id(self, chat_id: State):
+    def get_chat_messages_by_chat_id(self, chat_id: str):
         with self.get_connect() as conn:
             cursor = conn.execute(
                 """
@@ -83,6 +81,6 @@ class DB:
                     created_at
                 ;
             """,
-                (chat_id.get(),),
+                (chat_id,),
             )
             return cursor.fetchall()

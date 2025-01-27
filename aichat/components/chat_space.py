@@ -10,7 +10,6 @@ from db import DB
 from tables import MessageTableRow
 from messages import Message
 from roles import User, System, Agent
-from state import State
 
 
 class ChatMessage(ft.Row):
@@ -55,15 +54,14 @@ class FileLoader(ft.FilePicker):
         database: DB,
         app_agent: System,
         agent: Agent,
-        chat_id: State,
     ):
         super().__init__()
-        self.chat_id = chat_id
         self.database = database
         self.on_result = self.load_file
 
         self.app_agent = app_agent
         self.agent = agent
+        self.page = page
 
     def load_file(self, e: ft.FilePickerResultEvent):
         if e.files is None:
@@ -104,7 +102,7 @@ class FileLoader(ft.FilePicker):
             MessageTableRow(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
-                chat_id=self.chat_id.get(),
+                chat_id=self.page.session.get("chat_id"),
                 role="App",
                 content_type=file_type,
                 content=content,
@@ -116,14 +114,11 @@ class UserMessage(ft.TextField):
     def __init__(
         self,
         page: ft.Page,
-        chat_id: State,
         user: User,
         agent: Agent,
         database: DB,
     ):
         super().__init__()
-        self.chat_id = chat_id
-
         self.hint_text = "Write a message..."
         self.autofocus = True
         self.shift_enter = False
@@ -150,7 +145,7 @@ class UserMessage(ft.TextField):
             MessageTableRow(
                 id=id,
                 created_at=created_at,
-                chat_id=self.chat_id.get(),
+                chat_id=self.page.session.get("chat_id"),
                 role=self.user.name,
                 content_type=user_message.content_type,
                 content=user_message.content,
@@ -202,7 +197,7 @@ class UserMessage(ft.TextField):
                 MessageTableRow(
                     id=str(uuid.uuid4()),
                     created_at=datetime.now(),
-                    chat_id=self.chat_id.get(),
+                    chat_id=self.page.session.get("chat_id"),
                     role="Agent",
                     content_type="text",
                     content=agent_message,
@@ -211,17 +206,31 @@ class UserMessage(ft.TextField):
 
 
 class ChatHisiory(ft.ListView):
-    def __init__(self, page: ft.Page, user: User):
+    def __init__(self, page: ft.Page, user: User, agent: Agent, database: DB):
         super().__init__()
         self.expand = True
         self.spacing = 10
 
         self.user = user
+        self.agent = agent
+        self.database = database
         self.page = page
 
         self.page.pubsub.subscribe_topic("chat_history", self.update_view)
+        self.page.pubsub.subscribe_topic("chat_id", self.update_view_by_chat_id)
 
     def update_view(self, topic, message):
+        self.controls = self.page.session.get("chat_history")
+        self.update()
+
+    def update_view_by_chat_id(self, topic, chat_id):
+        role_map = {self.user.name: self.user, "App": self.user, "Agent": self.agent}
+        _chat_messages = self.database.get_chat_messages_by_chat_id(chat_id)
+        _chat_messages = [
+            ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
+        ]
+
+        self.page.session.set("chat_history", _chat_messages)
         self.controls = self.page.session.get("chat_history")
         self.update()
 
@@ -234,14 +243,13 @@ class MainView(ft.Column):
         agent: Agent,
         database: DB,
         file_picker: FileLoader,
-        chat_id: State,
     ):
         super().__init__()
 
         self.expand = True
 
-        self.user_message = UserMessage(page, chat_id, human, agent, database)
-        self.chat_history = ChatHisiory(page, human)
+        self.user_message = UserMessage(page, human, agent, database)
+        self.chat_history = ChatHisiory(page, human, agent, database)
         self.controls = [
             ft.Container(
                 content=self.chat_history,

@@ -6,17 +6,17 @@ import flet as ft
 from loguru import logger
 
 from db import DB
-from state import State
 from tables import ChatTableRow
 
 
 class PastChatItem(ft.Container):
-    def __init__(self, chat_id: str, text: str, chat_id_state: State):
+    def __init__(self, page: ft.Page, db: DB, chat_id: str, text: str):
         super().__init__()
 
         self.chat_id = chat_id
         self.text = text
-        self.chat_id_state = chat_id_state
+        self.page = page
+        self.db = db
 
         self.content = ft.Text(self._process_text(text))
         self.on_click = self.on_click_func
@@ -30,18 +30,18 @@ class PastChatItem(ft.Container):
     def on_click_func(self, e: ft.ControlEvent):
         logger.info(f"Clicked {self.chat_id}")
 
-        self.chat_id_state.set_value(self.chat_id)
+        self.page.session.set("chat_id", self.chat_id)
+        self.page.pubsub.send_all_on_topic("chat_id", self.chat_id)
 
 
 class PastChatList(ft.ListView):
-    def __init__(self, db: DB, chat_id: State):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
         self.expand = True
-        # self.auto_scroll = True
         self.spacing = 10
 
         self.db = db
-        self.chat_id_state = chat_id
+        self.page = page
 
         self._load_past_chat_list()
 
@@ -51,7 +51,7 @@ class PastChatList(ft.ListView):
             chat_id = past_chat[0]
             t = past_chat[1]
             self.controls.append(
-                PastChatItem(chat_id=chat_id, text=t, chat_id_state=self.chat_id_state)
+                PastChatItem(self.page, self.db, chat_id=chat_id, text=t)
             )
 
 
@@ -91,7 +91,7 @@ class ModelSelector(ft.Dropdown):
 
 
 class LeftSideBar(ft.Column):
-    def __init__(self, db: DB, chat_id: State):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
         self.expand = False
         self.width = 200
@@ -99,7 +99,7 @@ class LeftSideBar(ft.Column):
         self.border = ft.border.all(1, ft.Colors.OUTLINE)
         self.border_radius = 5
 
-        self.chat_list = PastChatList(db, chat_id)
+        self.chat_list = PastChatList(page, db)
         self.controls = [
             ft.Row(
                 [
@@ -111,7 +111,7 @@ class LeftSideBar(ft.Column):
             LeftSideBarContainer(content=self.chat_list),
         ]
 
-        self.chat_id = chat_id
+        self.page = page
         self.db = db
 
     def create_new_chat(self, e: ft.ControlEvent):
@@ -120,8 +120,6 @@ class LeftSideBar(ft.Column):
         chat_started_at = datetime.datetime.now()
 
         self.chat_id.set_value(new_chat_id)
+        self.page.session.set("chat_id", new_chat_id)
+        self.page.pubsub.send_all_on_topic("chat_id", None)
         ChatTableRow(new_chat_id, chat_started_at).insert_into(self.db)
-
-    def update_view(self):
-        self.chat_list._load_past_chat_list()
-        self.chat_list.update()
