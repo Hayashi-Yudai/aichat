@@ -8,6 +8,7 @@ from loguru import logger
 from agent_config import model_agent_mapping, DEFAULT_MODEL, MODELS
 from db import DB
 from tables import ChatTableRow
+from messages import Message
 
 
 class PastChatItem(ft.Container):
@@ -33,6 +34,19 @@ class PastChatItem(ft.Container):
 
         self.page.session.set("chat_id", self.chat_id)
         self.page.pubsub.send_all_on_topic("chat_id", self.chat_id)
+
+        role_map = {
+            self.page.session.get("user").name: self.page.session.get("user"),
+            "App": self.page.session.get("app_agent"),
+            "Agent": self.page.session.get("agent"),
+        }
+        _chat_messages = self.db.get_chat_messages_by_chat_id(
+            self.page.session.get("chat_id")
+        )
+        _chat_messages = [Message.from_tuple(m, role_map) for m in _chat_messages]
+
+        self.page.session.set("chat_history", _chat_messages)
+        self.page.pubsub.send_all_on_topic("chat_history", None)
 
 
 class PastChatList(ft.ListView):

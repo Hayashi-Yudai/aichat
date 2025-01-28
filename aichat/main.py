@@ -5,7 +5,6 @@ import flet as ft
 from loguru import logger
 
 from agent_config import model_agent_mapping, DEFAULT_MODEL
-from messages import Message
 from roles import User, System
 from components.chat_space import MainView
 from components.left_side_bar import LeftSideBar
@@ -28,26 +27,6 @@ def main(page: ft.Page, database: DB):
     page.session.set("user", User(USER_NAME, ft.Colors.GREEN))
     page.session.set("app_agent", System("App", ft.Colors.GREY))
 
-    def chat_id_bind(topic, message):
-        """
-        chat_id が変更されたらUIに表示されるチャット履歴を更新する
-        """
-        logger.info(f"Chat ID: {page.session.get('chat_id')}")
-        role_map = {
-            USER_NAME: page.session.get("user"),
-            "App": page.session.get("app_agent"),
-            "Agent": page.session.get("agent"),
-        }
-        _chat_messages = database.get_chat_messages_by_chat_id(
-            page.session.get("chat_id")
-        )
-        _chat_messages = [Message.from_tuple(m, role_map) for m in _chat_messages]
-
-        page.session.set("chat_history", _chat_messages)
-        page.pubsub.send_all_on_topic("chat_history", None)
-        page.update()
-
-    page.pubsub.subscribe_topic("chat_id", chat_id_bind)
     chat_started_at = datetime.now()
     ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
