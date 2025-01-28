@@ -1,6 +1,6 @@
 from pydantic.dataclasses import dataclass
 
-from roles import Agent, DeepSeekAgent, DummyAgent, OpenAIAgent
+from roles import Agent, DeepSeekAgent, DummyAgent, GeminiAgent, OpenAIAgent
 
 
 @dataclass
@@ -37,6 +37,8 @@ def model_agent_mapping(model_name: str) -> Agent:
             return OpenAIAgent(model_name)
         case "DeepSeek":
             return DeepSeekAgent(model_name)
+        case "Google":
+            return GeminiAgent(model_name)
         case "Dummy":
             return DummyAgent()
         case _:
