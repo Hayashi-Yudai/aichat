@@ -224,7 +224,6 @@ class MainView(ft.Column):
         self,
         page: ft.Page,
         database: DB,
-        file_picker: FileLoader,
     ):
         super().__init__()
 
@@ -232,6 +231,7 @@ class MainView(ft.Column):
 
         self.user_message = UserMessage(page, database)
         self.chat_history = ChatHisiory(page, database)
+        self.file_picker = FileLoader(page, database)
         self.controls = [
             ft.Container(
                 content=self.chat_history,
@@ -245,7 +245,9 @@ class MainView(ft.Column):
                     ft.IconButton(
                         icon=ft.Icons.ADD,
                         tooltip="Upload file",
-                        on_click=lambda _: file_picker.pick_files(allow_multiple=True),
+                        on_click=lambda _: self.file_picker.pick_files(
+                            allow_multiple=True
+                        ),
                     ),
                     self.user_message,
                     ft.IconButton(
@@ -256,6 +258,8 @@ class MainView(ft.Column):
                 ]
             ),
         ]
+
+        page.overlay.append(self.file_picker)
 
     def update_view(self):
         self.chat_history.update_view()
