@@ -12,6 +12,9 @@ class Message:
     content: str  # チャット履歴に表示される内容
     system_content: str  # Agentが処理する内容
 
+    def __hash__(self):
+        return hash((self.role, self.content_type, self.content, self.system_content))
+
     def to_agent_message(self, agent: Agent):
         message = agent.transform_to_agent_message(
             self.role.name, self.content_type, self.system_content

@@ -7,7 +7,7 @@ from loguru import logger
 from agent_config import model_agent_mapping, DEFAULT_MODEL
 from messages import Message
 from roles import User, System
-from components.chat_space import MainView, ChatMessage
+from components.chat_space import MainView
 from components.left_side_bar import LeftSideBar
 
 from tables import ChatTableRow
@@ -41,9 +41,7 @@ def main(page: ft.Page, database: DB):
         _chat_messages = database.get_chat_messages_by_chat_id(
             page.session.get("chat_id")
         )
-        _chat_messages = [
-            ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
-        ]
+        _chat_messages = [Message.from_tuple(m, role_map) for m in _chat_messages]
 
         page.session.set("chat_history", _chat_messages)
         page.pubsub.send_all_on_topic("chat_history", None)

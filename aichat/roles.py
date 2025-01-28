@@ -15,6 +15,9 @@ class Role:
     name: str
     avatar_color: ft.Colors
 
+    def __hash__(self):
+        return hash((self.name, self.avatar_color))
+
 
 class User(Role):
     """アプリを利用する主体を表すクラス"""

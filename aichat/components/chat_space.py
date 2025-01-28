@@ -82,13 +82,11 @@ class FileLoader(ft.FilePicker):
             content = f"Uploaded: {f.name}"
             _history_state = self.page.session.get("chat_history")
             _history_state.append(
-                ChatMessage(
-                    Message(
-                        self.page.session.get("app_agent"),
-                        file_type,
-                        content=content,
-                        system_content=system_content,
-                    )
+                Message(
+                    self.page.session.get("app_agent"),
+                    file_type,
+                    content=content,
+                    system_content=system_content,
                 )
             )
             self.page.session.set("chat_history", _history_state)
@@ -146,7 +144,7 @@ class UserMessage(ft.TextField):
             ).insert_into(self.database)
 
             _chat_history = self.page.session.get("chat_history")
-            _chat_history.append(ChatMessage(user_message))
+            _chat_history.append(user_message)
             self.page.session.set("chat_history", _chat_history)
             self.value = ""
 
@@ -156,20 +154,18 @@ class UserMessage(ft.TextField):
 
             # FIXME: ここでエージェントごとの分岐を処理するのは微妙
             agent = self.page.session.get("agent")
-            agent_input = [c.message.to_agent_message(agent) for c in _chat_history]
+            agent_input = [c.to_agent_message(agent) for c in _chat_history]
             # logger.debug(agent_input)
 
             agent_message = agent.get_response(agent_input)
             if agent_message is not None:
                 _chat_history = self.page.session.get("chat_history")
                 _chat_history.append(
-                    ChatMessage(
-                        Message(
-                            role=agent,  # type: ignore
-                            content_type="text",
-                            content=agent_message,
-                            system_content=agent_message,
-                        )
+                    Message(
+                        role=agent,  # type: ignore
+                        content_type="text",
+                        content=agent_message,
+                        system_content=agent_message,
                     )
                 )
                 self.page.session.set("chat_history", _chat_history)
@@ -199,7 +195,9 @@ class ChatHisiory(ft.ListView):
 
     def update_view(self, topic, message):
         logger.info("New message recieved. Updating ChatHisotry view.")
-        self.controls = self.page.session.get("chat_history")
+        self.controls = [
+            ChatMessage(ch) for ch in self.page.session.get("chat_history")
+        ]
         self.update()
 
     def update_view_by_chat_id(self, topic, chat_id):
@@ -210,12 +208,12 @@ class ChatHisiory(ft.ListView):
             "Agent": self.page.session.get("agent"),
         }
         _chat_messages = self.database.get_chat_messages_by_chat_id(chat_id)
-        _chat_messages = [
-            ChatMessage(Message.from_tuple(m, role_map)) for m in _chat_messages
-        ]
+        _chat_messages = [Message.from_tuple(m, role_map) for m in _chat_messages]
 
         self.page.session.set("chat_history", _chat_messages)
-        self.controls = self.page.session.get("chat_history")
+        self.controls = [
+            ChatMessage(ch) for ch in self.page.session.get("chat_history")
+        ]
         self.update()
 
 
