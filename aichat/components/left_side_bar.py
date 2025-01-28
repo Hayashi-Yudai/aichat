@@ -104,7 +104,6 @@ class ModelSelector(ft.Dropdown):
     def on_change_func(self, e: ft.ControlEvent):
         logger.info(f"Model selected: {self.value}")
         self.page.session.set("agent", model_agent_mapping(self.value))
-        # self.page.pubsub.send_all_on_topic("agent", None)
 
 
 class LeftSideBar(ft.Column):
