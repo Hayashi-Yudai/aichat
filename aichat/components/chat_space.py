@@ -149,6 +149,10 @@ class UserMessage(ft.TextField):
             self.value = ""
 
             self.page.pubsub.send_all_on_topic("chat_history", None)
+            if (
+                len(_chat_history) == 1
+            ):  # 初めてのメッセージが送信されたらリストを更新する
+                self.page.pubsub.send_all_on_topic("past_chat_list", None)
 
             self.focus()
 
@@ -178,8 +182,6 @@ class UserMessage(ft.TextField):
                     content=agent_message,
                     system_content=agent_message,
                 ).insert_into(self.database)
-
-            self.page.pubsub.send_all_on_topic("past_chat_list", None)
 
 
 class ChatHisiory(ft.ListView):
