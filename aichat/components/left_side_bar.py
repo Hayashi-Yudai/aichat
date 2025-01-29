@@ -135,7 +135,6 @@ class LeftSideBar(ft.Column):
         new_chat_id = str(uuid.uuid4())
         chat_started_at = datetime.datetime.now()
 
-        self.chat_id.set_value(new_chat_id)
         self.page.session.set("chat_id", new_chat_id)
         self.page.pubsub.send_all_on_topic("chat_id", None)
         ChatTableRow(new_chat_id, chat_started_at).insert_into(self.db)

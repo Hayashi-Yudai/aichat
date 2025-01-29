@@ -15,6 +15,9 @@ MODELS = [
     AgentModel(org="OpenAI", model_name="o1-mini"),
     AgentModel(org="OpenAI", model_name="o1-preview"),
     AgentModel(org="Google", model_name="gemini-1.5-flash"),
+    AgentModel(org="Google", model_name="gemini-1.5-pro"),
+    AgentModel(org="Google", model_name="gemini-2.0-flash-exp"),
+    AgentModel(org="Google", model_name="gemini-2.0-flash-thinking-exp"),
     AgentModel(org="DeepSeek", model_name="deepseek-chat"),
     AgentModel(org="DeepSeek", model_name="deepseek-reasoner"),
     AgentModel(org="Dummy", model_name="Dummy"),  # debug用

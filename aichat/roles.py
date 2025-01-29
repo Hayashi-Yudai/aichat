@@ -67,12 +67,14 @@ class OpenAIAgent(Role):
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def get_response(self, message: list[ChatCompletionMessageParam]):
+        logger.info("Sending message to OpenAI...")
         chat_completion = self.client.chat.completions.create(
             messages=message,
             model=self.model_name,
         )
         content = chat_completion.choices[0].message.content
         if content is None:
+            logger.error("OpenAI returned None")
             return ""
 
         return content
@@ -111,12 +113,14 @@ class DeepSeekAgent(Role):
         )
 
     def get_response(self, message: list[ChatCompletionMessageParam]):
+        logger.info("Sending message to DeepSeek...")
         chat_completion = self.client.chat.completions.create(
             messages=message,
             model=self.model_name,
         )
         content = chat_completion.choices[0].message.content
         if content is None:
+            logger.error("DeepSeek returned None")
             return ""
 
         return content
@@ -147,12 +151,14 @@ class GeminiAgent(Role):
         )
 
     def get_response(self, message: list[ChatCompletionMessageParam]):
+        logger.info("Sending message to Gemini...")
         chat_completion = self.client.chat.completions.create(
             messages=message,
             model=self.model_name,
         )
         content = chat_completion.choices[0].message.content
         if content is None:
+            logger.error("Gemini returned None")
             return ""
 
         return content
