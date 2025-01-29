@@ -43,6 +43,7 @@ class DummyAgent(Role):
     def __init__(self):
         super().__init__("System", ft.Colors.BLUE)
         self.org = "dummy"
+        self.model_name = "Dummy"
 
     def get_response(self, message: Any):
         return "Test"

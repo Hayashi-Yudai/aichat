@@ -25,7 +25,7 @@ def main(page: ft.Page, database: DB):
 
     page.session.set("chat_history", [])  # list[ChatMessage]
     page.session.set("chat_id", str(uuid.uuid4()))
-    page.session.set("agent", model_agent_mapping(DEFAULT_MODEL))
+    page.session.set("agent", model_agent_mapping("Dummy" if DEBUG else DEFAULT_MODEL))
     page.session.set("user", User(USER_NAME, ft.Colors.GREEN))
     page.session.set("app_agent", System("App", ft.Colors.GREY))
 

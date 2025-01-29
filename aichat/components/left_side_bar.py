@@ -100,7 +100,7 @@ class ModelSelector(ft.Dropdown):
         self.expand = True
 
         self.options = [ft.dropdown.Option(m.model_name) for m in MODELS]
-        self.value = DEFAULT_MODEL
+        self.value = page.session.get("agent").model_name
         self.page = page
         self.on_change = self.on_change_func
 
