@@ -152,7 +152,6 @@ class UserMessage(ft.TextField):
 
             self.focus()
 
-            # FIXME: ここでエージェントごとの分岐を処理するのは微妙
             agent = self.page.session.get("agent")
             agent_input = [c.to_agent_message(agent) for c in _chat_history]
             # logger.debug(agent_input)
@@ -179,6 +178,8 @@ class UserMessage(ft.TextField):
                     content=agent_message,
                     system_content=agent_message,
                 ).insert_into(self.database)
+
+            self.page.pubsub.send_all_on_topic("past_chat_list", None)
 
 
 class ChatHisiory(ft.ListView):

@@ -57,10 +57,12 @@ class PastChatList(ft.ListView):
 
         self.db = db
         self.page = page
+        self.page.pubsub.subscribe_topic("past_chat_list", self._load_past_chat_list)
 
         self._load_past_chat_list()
 
-    def _load_past_chat_list(self):
+    def _load_past_chat_list(self, topic=None, message=None):
+        logger.info("Loading past chat list")
         self.controls = []
         for past_chat in self.db.get_past_chat_list():
             chat_id = past_chat[0]
@@ -68,6 +70,8 @@ class PastChatList(ft.ListView):
             self.controls.append(
                 PastChatItem(self.page, self.db, chat_id=chat_id, text=t)
             )
+
+        self.page.update()
 
 
 class LeftSideBarContainer(ft.Container):
@@ -93,8 +97,7 @@ class ModelSelector(ft.Dropdown):
     def __init__(self, page: ft.Page):
         super().__init__()
 
-        self.expand = False
-        self.width = 150
+        self.expand = True
 
         self.options = [ft.dropdown.Option(m.model_name) for m in MODELS]
         self.value = DEFAULT_MODEL
@@ -107,10 +110,10 @@ class ModelSelector(ft.Dropdown):
 
 
 class LeftSideBar(ft.Column):
-    def __init__(self, page: ft.Page, db: DB):
+    def __init__(self, page: ft.Page, db: DB, width: int):
         super().__init__()
         self.expand = False
-        self.width = 200
+        self.width = width
         self.padding = 10
         self.border = ft.border.all(1, ft.Colors.OUTLINE)
         self.border_radius = 5

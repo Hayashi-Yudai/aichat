@@ -13,6 +13,7 @@ from tables import ChatTableRow
 from db import DB
 
 USER_NAME = "Yudai"
+DEBUG = False
 
 
 def main(page: ft.Page, database: DB):
@@ -20,6 +21,7 @@ def main(page: ft.Page, database: DB):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "Flet Chat"
     page.window.width = 1200
+    page.window.height = 800
 
     page.session.set("chat_history", [])  # list[ChatMessage]
     page.session.set("chat_id", str(uuid.uuid4()))
@@ -30,7 +32,7 @@ def main(page: ft.Page, database: DB):
     chat_started_at = datetime.now()
     ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
-    left_side_bar = LeftSideBar(page, db=database)
+    left_side_bar = LeftSideBar(page, db=database, width=330)
     main_view = MainView(page, database)
 
     page.add(
@@ -42,5 +44,6 @@ def main(page: ft.Page, database: DB):
 
 
 if __name__ == "__main__":
-    database = DB("chat.db")
+    db_name = "chat_dbg.db" if DEBUG else "chat.db"
+    database = DB(db_name)
     ft.app(target=lambda page: main(page, database))
