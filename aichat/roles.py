@@ -147,16 +147,11 @@ class GeminiAgent(Role):
 
         self.org = "google"
         self.model_name = model_name
-        self.client = OpenAI(
-            api_key=os.environ.get("GEMINI_API_KEY"),
-            base_url="https://generativelanguage.googleapis.com/v1beta/",
-        )
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         self.model = genai.GenerativeModel(model_name=model_name)
 
     def get_response(self, message: list[ChatCompletionMessageParam]):
         logger.info("Sending message to Gemini...")
-        logger.debug(f"Message: {message}")
 
         return self.model.generate_content(message).text
 
