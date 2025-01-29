@@ -4,6 +4,7 @@ from typing import Any, Protocol
 
 import flet as ft
 from loguru import logger
+import google.generativeai as genai
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 
@@ -88,14 +89,14 @@ class OpenAIAgent(Role):
                 "role": "assistant" if role_name == "Assistant" else "user",
                 "content": system_content,
             }
-        elif content_type == "image_url":
+        elif content_type == "png" or content_type == "jpeg":
             return {
                 "role": "assistant" if role_name == "Assistant" else "user",
                 "content": [
                     {
-                        "type": content_type,
+                        "type": "image_url",
                         "image_url": {
-                            "url": f"data:image/jpeg;base64,{system_content}"
+                            "url": f"data:image/{content_type};base64,{system_content}"
                         },
                     }
                 ],
@@ -150,29 +151,30 @@ class GeminiAgent(Role):
             api_key=os.environ.get("GEMINI_API_KEY"),
             base_url="https://generativelanguage.googleapis.com/v1beta/",
         )
+        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
+        self.model = genai.GenerativeModel(model_name=model_name)
 
     def get_response(self, message: list[ChatCompletionMessageParam]):
         logger.info("Sending message to Gemini...")
-        chat_completion = self.client.chat.completions.create(
-            messages=message,
-            model=self.model_name,
-        )
-        content = chat_completion.choices[0].message.content
-        if content is None:
-            logger.error("Gemini returned None")
-            return ""
+        logger.debug(f"Message: {message}")
 
-        return content
+        return self.model.generate_content(message).text
 
     def transform_to_agent_message(
         self, role_name: str, content_type: str, system_content: str
     ) -> Any:
-        if content_type != "text":
-            logger.error("Gemini only supports text messages")
-            return {}
-        message = {
-            "role": "assistant" if role_name == "Assistant" else "user",
-            "content": system_content,
-        }
-
-        return message
+        if content_type == "text":
+            return {
+                "role": "model" if role_name == "Assistant" else "user",
+                "parts": [{"text": system_content}],
+            }
+        elif content_type == "jpeg" or content_type == "png":
+            return {
+                "role": "model" if role_name == "Assistant" else "user",
+                "parts": [
+                    {
+                        "mime_type": f"image/{content_type}",
+                        "data": system_content,
+                    }
+                ],
+            }

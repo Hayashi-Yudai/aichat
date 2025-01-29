@@ -5,7 +5,7 @@ from typing import Callable
 import flet as ft
 from loguru import logger
 
-from agent_config import model_agent_mapping, DEFAULT_MODEL, MODELS
+from agent_config import model_agent_mapping, MODELS
 from db import DB
 from tables import ChatTableRow
 from messages import Message

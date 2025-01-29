@@ -70,10 +70,14 @@ class FileLoader(ft.FilePicker):
                     for p in pdf.pages:
                         system_content += p.extract_text()
                 file_type = "text"
-            elif f.path.endswith(".png") or f.path.endswith(".jpg"):
+            elif f.path.endswith(".png"):
                 with open(f.path, "rb") as d:
                     system_content = base64.b64encode(d.read()).decode("utf-8")
-                file_type = "image_url"
+                file_type = "png"
+            elif f.path.endswith(".jpg") or f.path.endswith(".jpeg"):
+                with open(f.path, "rb") as d:
+                    system_content = base64.b64encode(d.read()).decode("utf-8")
+                file_type = "jpeg"
             else:
                 with open(f.path, "r") as d:
                     system_content = d.read()
@@ -149,10 +153,7 @@ class UserMessage(ft.TextField):
             self.value = ""
 
             self.page.pubsub.send_all_on_topic("chat_history", None)
-            if (
-                len(_chat_history) == 1
-            ):  # 初めてのメッセージが送信されたらリストを更新する
-                self.page.pubsub.send_all_on_topic("past_chat_list", None)
+            self.page.pubsub.send_all_on_topic("past_chat_list", None)
 
             self.focus()
 
