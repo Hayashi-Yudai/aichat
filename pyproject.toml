@@ -12,6 +12,7 @@ openai = "^1.59.8"
 pdfplumber = "^0.11.5"
 pydantic = "^2.10.6"
 loguru = "^0.7.3"
+google-generativeai = "^0.8.4"
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1.14.1"
