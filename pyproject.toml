@@ -1,27 +1,15 @@
-[tool.poetry]
+[project]
 name = "aichat"
 version = "0.1.0"
-description = ""
-authors = ["Yudai Hayashi <yudai@wantedly.com>"]
+description = "Add your description here"
 readme = "README.md"
-
-[tool.poetry.dependencies]
-python = "^3.13"
-flet = "^0.25.2"
-openai = "^1.59.8"
-pdfplumber = "^0.11.5"
-pydantic = "^2.10.6"
-loguru = "^0.7.3"
-google-generativeai = "^0.8.4"
-
-[tool.poetry.group.dev.dependencies]
-mypy = "^1.14.1"
-flake8 = "^7.1.1"
-black = "^24.10.0"
-
-[tool.mypy]
-ignore_missing_imports = true
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+requires-python = ">=3.12"
+dependencies = [
+    "flet[all]>=0.26.0",
+    "flet-cli>=0.26.0",
+    "google-generativeai>=0.8.4",
+    "loguru>=0.7.3",
+    "openai>=1.62.0",
+    "pdfplumber>=0.11.5",
+    "pydantic>=2.10.6",
+]
