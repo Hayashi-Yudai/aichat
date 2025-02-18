@@ -7,7 +7,7 @@ import pdfplumber
 from loguru import logger
 
 from db import DB
-from tables import MessageTableRow
+from tables import MessageTable
 from messages import Message
 
 
@@ -99,7 +99,7 @@ class FileLoader(ft.FilePicker):
             self.page.pubsub.send_all_on_topic("chat_history", None)
             self.update()
 
-            MessageTableRow(
+            MessageTable(
                 id=str(uuid.uuid4()),
                 created_at=datetime.now(),
                 chat_id=self.page.session.get("chat_id"),
@@ -139,7 +139,7 @@ class UserMessage(ft.TextField):
             id = str(uuid.uuid4())
             created_at = datetime.now()
 
-            MessageTableRow(
+            MessageTable(
                 id=id,
                 created_at=created_at,
                 chat_id=self.page.session.get("chat_id"),
@@ -176,7 +176,7 @@ class UserMessage(ft.TextField):
                 )
                 self.page.session.set("chat_history", _chat_history)
                 self.page.pubsub.send_all_on_topic("chat_history", None)
-                MessageTableRow(
+                MessageTable(
                     id=str(uuid.uuid4()),
                     created_at=datetime.now(),
                     chat_id=self.page.session.get("chat_id"),

@@ -9,7 +9,7 @@ from roles import User, System
 from components.chat_space import MainView
 from components.left_side_bar import LeftSideBar
 
-from tables import ChatTableRow
+from tables import ChatTable
 from db import DB
 
 USER_NAME = "Yudai"
@@ -30,7 +30,7 @@ def main(page: ft.Page, database: DB):
     page.session.set("app_agent", System("App", ft.Colors.GREY))
 
     chat_started_at = datetime.now()
-    ChatTableRow(page.session.get("chat_id"), chat_started_at).insert_into(database)
+    ChatTable(page.session.get("chat_id"), chat_started_at).insert_into(database)
 
     left_side_bar = LeftSideBar(page, db=database, width=330)
     main_view = MainView(page, database)

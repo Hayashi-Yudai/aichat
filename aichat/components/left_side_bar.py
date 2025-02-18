@@ -7,7 +7,7 @@ from loguru import logger
 
 from agent_config import model_agent_mapping, MODELS
 from db import DB
-from tables import ChatTableRow
+from tables import ChatTable
 from messages import Message
 
 
@@ -140,4 +140,4 @@ class LeftSideBar(ft.Column):
 
         self.page.session.set("chat_id", new_chat_id)
         self.page.pubsub.send_all_on_topic("chat_id", None)
-        ChatTableRow(new_chat_id, chat_started_at).insert_into(self.db)
+        ChatTable(new_chat_id, chat_started_at).insert_into(self.db)

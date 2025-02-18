@@ -12,7 +12,7 @@ class TableRow(Protocol):
 
 
 @dataclass
-class ChatTableRow:
+class ChatTable:
     id: str
     created_at: datetime
 
@@ -29,7 +29,7 @@ class ChatTableRow:
 
 
 @dataclass
-class MessageTableRow:
+class MessageTable:
     id: str
     created_at: datetime
     chat_id: str
