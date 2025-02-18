@@ -13,7 +13,7 @@ from tables import ChatTableRow
 from db import DB
 
 USER_NAME = "Yudai"
-DEBUG = True
+DEBUG = False
 
 
 def main(page: ft.Page, database: DB):

@@ -27,10 +27,12 @@ class ChatMessage(ft.Row):
             ft.Column(
                 [
                     ft.Text(message.role.name, weight=ft.FontWeight.BOLD),
-                    ft.Markdown(
-                        message.content,
-                        extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                        selectable=True,
+                    ft.SelectionArea(
+                        ft.Markdown(
+                            message.content,
+                            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+                            selectable=True,
+                        )
                     ),
                 ],
                 tight=True,
