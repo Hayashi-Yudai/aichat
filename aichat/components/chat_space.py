@@ -31,7 +31,6 @@ class ChatMessage(ft.Row):
                         ft.Markdown(
                             message.content,
                             extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                            selectable=True,
                         )
                     ),
                 ],
