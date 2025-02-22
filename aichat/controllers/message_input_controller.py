@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 import flet as ft
+from loguru import logger
 
 from models.message import Message
 from models.role import Role
@@ -25,4 +26,7 @@ class MessageInputController:
 
         msg = Message(id, created_at, text, self.role)
         msg.register()
-        self.pubsub.send_all_on_topic(Topics.SUBMIT_MESSAGE, msg)
+
+        topic = Topics.SUBMIT_MESSAGE
+        self.pubsub.send_all_on_topic(topic, msg)
+        logger.debug(f"{self.__class__.__name__} published topic: {topic}")

@@ -1,4 +1,5 @@
 import flet as ft
+from loguru import logger
 
 from controllers.message_input_controller import MessageInputController
 
@@ -41,7 +42,7 @@ class _FileLoader(ft.FilePicker):
         self.controller = None
 
     def on_result_func(self, e: ft.ControlEvent):
-        print(e.files)
+        logger.debug(f"Uploaded files: {e.files}")
 
         self.update()
 

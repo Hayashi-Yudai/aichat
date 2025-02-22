@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from loguru import logger
 from pydantic.dataclasses import dataclass
 
 from models.role import Role
@@ -13,4 +14,7 @@ class Message:
     role: Role
 
     def register(self):
-        print(f"Message sent: {self.id}, {self.created_at}")
+        logger.debug(f"Message registered in {self.__class__.__name__} model")
+        logger.debug(
+            f"id: {self.id}, created_at: {self.created_at}, text: {self.text:.10}, role: {self.role}"
+        )

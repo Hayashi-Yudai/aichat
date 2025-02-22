@@ -1,4 +1,5 @@
 import flet as ft
+from loguru import logger
 
 from models.message import Message
 
@@ -44,12 +45,13 @@ class _ChatMessageList(ft.ListView):
         self.spacing = 10
         self.controls = []
 
-        # self.item_builder = _ChatMessage
+        self._item_builder = _ChatMessage
         # self.controller = ChatDisplayController(item_builder=self.item_builder)
-        self.pubsub.subscribe_topic(Topics.SUBMIT_MESSAGE, self.update_list)
+        self.pubsub.subscribe_topic(Topics.SUBMIT_MESSAGE, self.update_message_list)
 
-    def update_list(self, topic: Topics, message: str):
-        self.controls.append(_ChatMessage(message))
+    def update_message_list(self, topic: Topics, message: str):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controls.append(self._item_builder(message))
         self.update()
 
 
