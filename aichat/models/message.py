@@ -1,4 +1,5 @@
 from datetime import datetime
+import uuid
 
 from loguru import logger
 from pydantic.dataclasses import dataclass
@@ -18,3 +19,7 @@ class Message:
         logger.debug(
             f"id: {self.id}, created_at: {self.created_at}, text: {self.text:.10}, role: {self.role}"
         )
+
+    @classmethod
+    def construct_auto(cls, text: str, role: Role):
+        return cls(str(uuid.uuid4()), datetime.now(), text, role)

@@ -5,10 +5,10 @@ from controllers.message_input_controller import MessageInputController
 
 
 class _MessageInputArea(ft.TextField):
-    def __init__(self, pubsub: ft.PubSubClient):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
-        self.pubsub = pubsub
+        self.pubsub = page.pubsub
 
         self.hint_text = "Write a message..."
         self.autofocus = True
@@ -19,7 +19,7 @@ class _MessageInputArea(ft.TextField):
         self.expand = True
         self.value = ""
 
-        self.controller = MessageInputController(pubsub=pubsub)
+        self.controller = MessageInputController(page=page)
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):
@@ -31,10 +31,10 @@ class _MessageInputArea(ft.TextField):
 
 
 class _FileLoader(ft.FilePicker):
-    def __init__(self, pubsub: ft.PubSubClient):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
-        self.pubsub = pubsub
+        self.pubsub = page.pubsub
 
         self.expand = True
         self.on_result = self.on_result_func
@@ -48,20 +48,20 @@ class _FileLoader(ft.FilePicker):
 
 
 class UserMessageArea(ft.Row):
-    def __init__(self, pubsub: ft.PubSubClient):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
-        self.pubsub = pubsub
+        self.pubsub = page.pubsub
 
         # Widgets
-        self.file_picker = _FileLoader(pubsub=pubsub)
+        self.file_picker = _FileLoader(page=page)
 
         self.file_loader_icon = ft.IconButton(
             icon=ft.Icons.ADD,
             tooltip="Upload file",
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
         )
-        self.message_input_area = _MessageInputArea(pubsub=pubsub)
+        self.message_input_area = _MessageInputArea(page=page)
         self.send_message_icon = ft.IconButton(
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",

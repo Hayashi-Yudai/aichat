@@ -8,9 +8,11 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
 
+    # Session Storages
+
     # Widgets
-    user_message_area = UserMessageArea(pubsub=page.pubsub)
-    chat_message_container = ChatMessageContainer(pubsub=page.pubsub)
+    user_message_area = UserMessageArea(page=page)
+    chat_message_container = ChatMessageContainer(page=page)
 
     # overlayにwidgetを登録
     page.overlay.extend([user_message_area.file_picker])
