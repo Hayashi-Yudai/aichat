@@ -68,7 +68,7 @@ class _ChatMessageList(ft.ListView):
         self.update()
 
 
-class ChatMessageContainer(ft.Container):
+class ChatMessageDisplayContainer(ft.Container):
     def __init__(self, page: ft.Page):
         super().__init__()
 

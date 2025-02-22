@@ -1,7 +1,7 @@
 import flet as ft
 
 from views.message_input_area import UserMessageArea
-from views.chat_display_area import ChatMessageContainer
+from views.chat_display_area import ChatMessageDisplayContainer
 
 
 def main(page: ft.Page):
@@ -12,12 +12,14 @@ def main(page: ft.Page):
 
     # Widgets
     user_message_area = UserMessageArea(page=page)
-    chat_message_container = ChatMessageContainer(page=page)
+    chat_messages_display_container = ChatMessageDisplayContainer(page=page)
 
     # overlayにwidgetを登録
     page.overlay.extend([user_message_area.file_picker])
 
-    page.add(ft.Column([chat_message_container, user_message_area], expand=True))
+    page.add(
+        ft.Column([chat_messages_display_container, user_message_area], expand=True)
+    )
 
 
 if __name__ == "__main__":
