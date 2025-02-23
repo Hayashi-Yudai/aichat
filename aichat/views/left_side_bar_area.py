@@ -1,6 +1,8 @@
 import flet as ft
+from loguru import logger
 
 from agents.openai_agent import OpenAIModel
+from topics import Topics
 
 
 class NewChatButton(ft.IconButton):
@@ -21,6 +23,14 @@ class ModelSelector(ft.Dropdown):
 
         self.tight = True
         self.expand = True
+        self.on_change = self.on_change_func
+
+        self.pubsub = page.pubsub
+
+    def on_change_func(self, e: ft.ControlEvent):
+        logger.info(f"Agent changed to: {e.data}")
+
+        self.pubsub.send_all_on_topic(Topics.CHANGE_AGENT, e.data)
 
 
 class PastChatList(ft.ListView):
