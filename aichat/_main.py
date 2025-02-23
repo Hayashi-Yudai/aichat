@@ -1,6 +1,7 @@
 import flet as ft
 
-from agents.agent import DummyAgent
+# from agents.agent import DummyAgent
+from agents.openai_agent import OpenAIAgent, OpenAIModel
 from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
 
@@ -9,7 +10,7 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
 
-    agent = DummyAgent()
+    agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
 
     # Widgets
     user_message_area = UserMessageArea(page=page)
