@@ -17,6 +17,9 @@ class DummyAgent:
     デバッグ用のエージェント
     """
 
+    def __init__(self):
+        self.role = Role("Agent", ft.Colors.BLUE)
+
     def _construct_request(self, messages: list[Message]) -> Any:
         pass
 
