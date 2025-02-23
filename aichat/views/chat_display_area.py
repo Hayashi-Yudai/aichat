@@ -63,10 +63,11 @@ class _ChatMessageList(ft.ListView):
     def append_new_message_to_list(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controls.append(self._item_builder(message))
+        self.update()
 
         agent_response = self.controller.get_agent_response(self.controls)
-        logger.info("Request to agent...")
-        self.controls.append(agent_response)
+        if agent_response:
+            self.controls.append(agent_response)
 
         self.update()
 

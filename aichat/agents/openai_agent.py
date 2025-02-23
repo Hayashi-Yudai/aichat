@@ -7,7 +7,7 @@ from loguru import logger
 from openai import OpenAI
 
 from models.role import Role
-from models.message import Message
+from models.message import Message, ContentType
 
 
 class OpenAIModel(StrEnum):
@@ -29,9 +29,12 @@ class OpenAIAgent:
     def _construct_request(self, message: Message) -> dict[str, Any]:
         request = {"role": "assistant" if message.role.name == "Assistant" else "user"}
 
-        if message.content_type == "text":
+        if message.content_type == ContentType.TEXT:
             request["content"] = message.system_content
-        elif message.content_type == "png" or message.content_type == "jpeg":
+        elif (
+            message.content_type == ContentType.PNG
+            or message.content_type == ContentType.JPEG
+        ):
             request["content"] = [
                 {
                     "type": "image_url",

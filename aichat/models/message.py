@@ -34,3 +34,16 @@ class Message:
         return cls(
             str(uuid.uuid4()), datetime.now(), text, text, ContentType.TEXT, role
         )
+
+    @classmethod
+    def construct_auto_file(
+        cls, display_content: str, system_content: str, role, content_type
+    ):
+        return cls(
+            str(uuid.uuid4()),
+            datetime.now(),
+            display_content,
+            system_content,
+            content_type,
+            role,
+        )

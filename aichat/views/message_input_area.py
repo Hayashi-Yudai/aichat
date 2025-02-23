@@ -1,7 +1,10 @@
 import flet as ft
 from loguru import logger
 
-from controllers.message_input_controller import MessageInputController
+from controllers.message_input_controller import (
+    MessageInputController,
+    FileLoaderController,
+)
 
 
 class _MessageInputArea(ft.TextField):
@@ -39,10 +42,12 @@ class _FileLoader(ft.FilePicker):
         self.expand = True
         self.on_result = self.on_result_func
 
-        self.controller = None
+        self.controller = FileLoaderController(pubsub=page.pubsub)
 
     def on_result_func(self, e: ft.ControlEvent):
         logger.debug(f"Uploaded files: {e.files}")
+        for f in e.files:
+            self.controller.append_file_content_to_chatlist(f)
 
         self.update()
 
