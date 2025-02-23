@@ -4,6 +4,7 @@ import flet as ft
 from agents.openai_agent import OpenAIAgent, OpenAIModel
 from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
+from views.left_side_bar_area import LeftSideBarArea
 
 
 def main(page: ft.Page):
@@ -17,12 +18,21 @@ def main(page: ft.Page):
     chat_messages_display_container = ChatMessageDisplayContainer(
         page=page, agent=agent
     )
+    left_side_bar_area = LeftSideBarArea(page=page)
 
     # overlayにwidgetを登録
     page.overlay.extend([user_message_area.file_picker])
 
     page.add(
-        ft.Column([chat_messages_display_container, user_message_area], expand=True)
+        ft.Row(
+            [
+                left_side_bar_area,
+                ft.Column(
+                    [chat_messages_display_container, user_message_area], expand=True
+                ),
+            ],
+            expand=True,
+        )
     )
 
 
