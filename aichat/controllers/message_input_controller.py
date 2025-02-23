@@ -1,6 +1,3 @@
-import uuid
-from datetime import datetime
-
 import flet as ft
 from loguru import logger
 
@@ -21,17 +18,10 @@ class MessageInputController:
         self.pubsub = page.pubsub
 
     def send_message(self, text: str):
-        id = str(uuid.uuid4())
-        created_at = datetime.now()
-
         # User messageの追加
-        msg = Message(id, created_at, text, self.role)
+        msg = Message.construct_auto(text, self.role)
         msg.register()
 
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
-
-        # Agent messageの追加
-        # NOTE: Agentの情報は誰が持つ？
-        # NOTE: チャット履歴はどこで持つ？ ControllerからDBを直接叩く？

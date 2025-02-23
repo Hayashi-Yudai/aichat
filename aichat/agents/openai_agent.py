@@ -26,11 +26,25 @@ class OpenAIAgent:
 
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
-    def _construct_request(self, message: Message) -> list[Any]:
-        return {
-            "role": "assistant" if message.role.name == "Assistant" else "user",
-            "content": message.text,
-        }
+    def _construct_request(self, message: Message) -> dict[str, Any]:
+        request = {"role": "assistant" if message.role.name == "Assistant" else "user"}
+
+        if message.content_type == "text":
+            request["content"] = message.system_content
+        elif message.content_type == "png" or message.content_type == "jpeg":
+            request["content"] = [
+                {
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:image/{message.content_type};base64,{message.system_content}"
+                    },
+                }
+            ]
+        else:
+            logger.error(f"Invalid content type: {message.content_type}")
+            raise ValueError(f"Invalid content type: {message.content_type}")
+
+        return request
 
     def request(self, messages: list[Message]) -> Message:
         logger.info("Sending message to OpenAI...")

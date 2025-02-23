@@ -7,7 +7,7 @@ from models.role import Role
 
 
 class Agent(Protocol):
-    def _construct_request(self, message: Message) -> list[Any]: ...
+    def _construct_request(self, message: Message) -> dict[str, Any]: ...
 
     def request(self, messages: list[Message]) -> Message: ...
 
@@ -20,7 +20,7 @@ class DummyAgent:
     def __init__(self):
         self.role = Role("Agent", ft.Colors.BLUE)
 
-    def _construct_request(self, message: Message) -> list[Any]:
+    def _construct_request(self, message: Message) -> dict[str, Any]:
         pass
 
     def request(self, messages: list[Message]) -> Message:
