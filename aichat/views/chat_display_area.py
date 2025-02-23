@@ -26,7 +26,7 @@ class _ChatMessage(ft.Row):
                     ft.Text(message.role.name),
                     ft.SelectionArea(
                         ft.Markdown(
-                            message.text,
+                            message.display_content,
                             extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
                         )
                     ),
