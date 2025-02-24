@@ -18,7 +18,7 @@ def main(page: ft.Page):
     chat_messages_display_container = ChatMessageDisplayContainer(
         page=page, agent=agent
     )
-    left_side_bar_area = LeftSideBarArea(page=page)
+    left_side_bar_area = LeftSideBarArea(page=page, default_agent=agent)
 
     # overlayにwidgetを登録
     page.overlay.extend([user_message_area.file_picker])

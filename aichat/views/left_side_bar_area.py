@@ -1,7 +1,7 @@
 import flet as ft
 from loguru import logger
 
-from agents.agent import DummyModel
+from agents.agent import Agent, DummyModel
 from agents.openai_agent import OpenAIModel
 from topics import Topics
 
@@ -16,12 +16,14 @@ class NewChatButton(ft.IconButton):
 
 
 class ModelSelector(ft.Dropdown):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
         dummy_model = [ft.dropdown.Option(m) for m in DummyModel]
         openai_models = [ft.dropdown.Option(m) for m in OpenAIModel]
         self.options = dummy_model + openai_models
+
+        self.value = default_agent.model
 
         self.tight = True
         self.expand = True
@@ -55,7 +57,7 @@ class PastChatListContainer(ft.Container):
 
 
 class LeftSideBarArea(ft.Column):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
         self.expand = False
@@ -64,7 +66,7 @@ class LeftSideBarArea(ft.Column):
 
         # Widgets
         new_chat_button = NewChatButton(page)
-        model_selector = ModelSelector(page)
+        model_selector = ModelSelector(page, default_agent)
 
         past_chat_list = PastChatList(page)
         past_chat_list_container = PastChatListContainer(content=past_chat_list)
