@@ -12,5 +12,4 @@ dependencies = [
     "openai>=1.62.0",
     "pdfplumber>=0.11.5",
     "pydantic>=2.10.6",
-    "sqlalchemy>=2.0.38",
 ]
