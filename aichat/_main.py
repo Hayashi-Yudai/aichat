@@ -1,4 +1,5 @@
 import flet as ft
+from loguru import logger
 
 # from agents.agent import DummyAgent
 from agents.openai_agent import OpenAIAgent, OpenAIModel
@@ -11,6 +12,7 @@ def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
 
+    logger.debug("Initialize agent...")
     agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
 
     # Widgets
