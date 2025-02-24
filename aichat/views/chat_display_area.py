@@ -2,7 +2,6 @@ import flet as ft
 from loguru import logger
 
 from agents.agent import Agent
-from agents.openai_agent import OpenAIAgent
 from models.message import Message
 
 from controllers.chat_display_controller import ChatDisplayController
@@ -75,10 +74,7 @@ class _ChatMessageList(ft.ListView):
 
     def change_agent(self, topic: Topics, model: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.agent = OpenAIAgent(
-            model
-        )  # FIXME: OpenAI専用になってる。あとEnum渡したい
-        logger.debug(f"Agent model changed to: {self.controller.agent}")
+        self.controller.change_agent(model)
 
 
 class ChatMessageDisplayContainer(ft.Container):

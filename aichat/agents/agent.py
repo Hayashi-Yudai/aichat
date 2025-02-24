@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import Any, Protocol
 
 import flet as ft
@@ -12,6 +13,10 @@ class Agent(Protocol):
     def request(self, messages: list[Message]) -> Message: ...
 
 
+class DummyModel(StrEnum):
+    DUMMY = "Dummy"
+
+
 class DummyAgent:
     """
     デバッグ用のエージェント
@@ -19,6 +24,7 @@ class DummyAgent:
 
     def __init__(self):
         self.role = Role("Agent", ft.Colors.BLUE)
+        self.model = DummyModel.DUMMY
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         pass
@@ -26,4 +32,4 @@ class DummyAgent:
     def request(self, messages: list[Message]) -> Message:
         role = Role("Agent", ft.Colors.BLUE)
 
-        return Message.construct_auto(messages[-1].text, role)
+        return Message.construct_auto(messages[-1].display_content, role)

@@ -1,6 +1,7 @@
 import flet as ft
 from loguru import logger
 
+from agents.agent import DummyModel
 from agents.openai_agent import OpenAIModel
 from topics import Topics
 
@@ -18,8 +19,9 @@ class ModelSelector(ft.Dropdown):
     def __init__(self, page: ft.Page):
         super().__init__()
 
+        dummy_model = [ft.dropdown.Option(m) for m in DummyModel]
         openai_models = [ft.dropdown.Option(m) for m in OpenAIModel]
-        self.options = openai_models
+        self.options = dummy_model + openai_models
 
         self.tight = True
         self.expand = True

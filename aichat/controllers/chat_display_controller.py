@@ -3,7 +3,8 @@ from typing import Type
 import flet as ft
 from loguru import logger
 
-from agents.agent import Agent
+from agents.agent import Agent, DummyAgent, DummyModel
+from agents.openai_agent import OpenAIAgent, OpenAIModel
 
 
 class ChatDisplayController:
@@ -23,3 +24,11 @@ class ChatDisplayController:
         logger.info("Request to agent...")
         response = self.agent.request(messages)
         return self.item_builder(response)
+
+    def change_agent(self, model: str):
+        if model in OpenAIModel:
+            self.agent = OpenAIAgent(model)
+        elif model in DummyModel:
+            self.agent = DummyAgent()
+
+        logger.debug(f"Agent model changed to: {self.agent.model}")
