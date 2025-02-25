@@ -3,11 +3,12 @@ from loguru import logger
 
 from agents.agent import Agent, DummyModel
 from agents.openai_agent import OpenAIModel
+from database.db import DB
 from topics import Topics
 
 
 class NewChatButton(ft.IconButton):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.icon = ft.Icons.OPEN_IN_NEW_ROUNDED
@@ -16,7 +17,7 @@ class NewChatButton(ft.IconButton):
 
 
 class ModelSelector(ft.Dropdown):
-    def __init__(self, page: ft.Page, default_agent: Agent):
+    def __init__(self, page: ft.Page, default_agent: Agent, db: DB):
         super().__init__()
 
         dummy_model = [ft.dropdown.Option(m) for m in DummyModel]
@@ -38,7 +39,7 @@ class ModelSelector(ft.Dropdown):
 
 
 class PastChatList(ft.ListView):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.expand = True
@@ -46,7 +47,7 @@ class PastChatList(ft.ListView):
 
 
 class PastChatListContainer(ft.Container):
-    def __init__(self, content: ft.Control):
+    def __init__(self, content: ft.Control, db: DB):
         super().__init__()
 
         self.content = content
@@ -57,7 +58,7 @@ class PastChatListContainer(ft.Container):
 
 
 class LeftSideBarArea(ft.Column):
-    def __init__(self, page: ft.Page, default_agent: Agent):
+    def __init__(self, page: ft.Page, default_agent: Agent, db: DB):
         super().__init__()
 
         self.expand = False
@@ -65,11 +66,11 @@ class LeftSideBarArea(ft.Column):
         self.spacing = 10
 
         # Widgets
-        new_chat_button = NewChatButton(page)
-        model_selector = ModelSelector(page, default_agent)
+        new_chat_button = NewChatButton(page, db)
+        model_selector = ModelSelector(page, default_agent, db)
 
-        past_chat_list = PastChatList(page)
-        past_chat_list_container = PastChatListContainer(content=past_chat_list)
+        past_chat_list = PastChatList(page, db)
+        past_chat_list_container = PastChatListContainer(content=past_chat_list, db=db)
 
         self.controls = [
             ft.Row([new_chat_button, model_selector], expand=False, tight=True),

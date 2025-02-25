@@ -1,6 +1,7 @@
 import flet as ft
 from loguru import logger
 
+from database.db import DB
 from controllers.message_input_controller import (
     MessageInputController,
     FileLoaderController,
@@ -8,7 +9,7 @@ from controllers.message_input_controller import (
 
 
 class _MessageInputArea(ft.TextField):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -34,7 +35,7 @@ class _MessageInputArea(ft.TextField):
 
 
 class _FileLoader(ft.FilePicker):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -53,20 +54,20 @@ class _FileLoader(ft.FilePicker):
 
 
 class UserMessageArea(ft.Row):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.pubsub = page.pubsub
 
         # Widgets
-        self.file_picker = _FileLoader(page=page)
+        self.file_picker = _FileLoader(page=page, db=db)
 
         self.file_loader_icon = ft.IconButton(
             icon=ft.Icons.ADD,
             tooltip="Upload file",
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
         )
-        self.message_input_area = _MessageInputArea(page=page)
+        self.message_input_area = _MessageInputArea(page=page, db=db)
         self.send_message_icon = ft.IconButton(
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",
