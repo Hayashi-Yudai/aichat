@@ -5,6 +5,7 @@ import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
 
+from database.db import DB
 from models.message import Message, ContentType
 from models.role import Role
 from topics import Topics
@@ -17,14 +18,15 @@ class MessageInputController:
     ユーザーがサブミット時にチャット欄に書いた入力を受取り、処理を実行する責務をもつ
     """
 
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, db: DB):
         self.role = Role("user", ft.Colors.GREEN)
         self.pubsub = page.pubsub
+        self.db = db
 
     def send_message(self, text: str):
         # User messageの追加
         msg = Message.construct_auto(text, self.role)
-        msg.register()
+        self.db.insert_from_model(msg)
 
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)

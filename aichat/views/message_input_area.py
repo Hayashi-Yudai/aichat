@@ -23,7 +23,7 @@ class _MessageInputArea(ft.TextField):
         self.expand = True
         self.value = ""
 
-        self.controller = MessageInputController(page=page)
+        self.controller = MessageInputController(page=page, db=db)
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):

@@ -2,6 +2,7 @@ import flet as ft
 from loguru import logger
 
 from agents.agent import Agent
+from database.db import DB
 from models.message import Message
 
 from controllers.chat_display_controller import ChatDisplayController
@@ -78,7 +79,7 @@ class _ChatMessageList(ft.ListView):
 
 
 class ChatMessageDisplayContainer(ft.Container):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page, agent: Agent, db: DB):
         super().__init__()
 
         self.pubsub = page.pubsub

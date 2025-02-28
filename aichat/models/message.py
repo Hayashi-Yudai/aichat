@@ -2,9 +2,10 @@ from datetime import datetime
 from enum import StrEnum
 import uuid
 
-from loguru import logger
+# from loguru import logger
 from pydantic.dataclasses import dataclass
 
+from models.model import Schema
 from models.role import Role
 
 
@@ -22,12 +23,6 @@ class Message:
     system_content: str  # Agentに送信する内容. base64エンコードされた画像データなど
     content_type: ContentType
     role: Role
-
-    def register(self):
-        logger.debug(f"Message registered in {self.__class__.__name__} model")
-        logger.debug(
-            f"id: {self.id}, created_at: {self.created_at}, text: {self.display_content:.10}, role: {self.role}"
-        )
 
     @classmethod
     def construct_auto(cls, text: str, role: Role):
@@ -47,3 +42,18 @@ class Message:
             content_type,
             role,
         )
+
+    @property
+    def schema(self) -> dict[str, str]:
+        return [
+            Schema("id", "text", is_primary_key=True, is_nullable=False),
+            Schema("created_at", "text", is_nullable=False),
+            Schema("display_content", "text", is_nullable=True),
+            Schema("system_content", "text", is_nullable=True),
+            Schema("content_type", "text", is_nullable=False),
+            Schema("role", "text", is_nullable=False),
+        ]
+
+    @property
+    def table_name(self) -> str:
+        return self.__class__.__name__.lower()
