@@ -18,14 +18,16 @@ class MessageInputController:
     ユーザーがサブミット時にチャット欄に書いた入力を受取り、処理を実行する責務をもつ
     """
 
-    def __init__(self, page: ft.Page, db: DB):
+    def __init__(self, page: ft.Page, db: DB, chat_id: str):
         self.role = Role("user", ft.Colors.GREEN)
         self.pubsub = page.pubsub
         self.db = db
 
+        self.chat_id = chat_id
+
     def send_message(self, text: str):
         # User messageの追加
-        msg = Message.construct_auto(text, self.role)
+        msg = Message.construct_auto(self.chat_id, text, self.role)
         self.db.insert_from_model(msg)
 
         topic = Topics.SUBMIT_MESSAGE
@@ -34,9 +36,11 @@ class MessageInputController:
 
 
 class FileLoaderController:
-    def __init__(self, pubsub: ft.PubSubClient, db: DB):
+    def __init__(self, pubsub: ft.PubSubClient, db: DB, chat_id: str):
         self.pubsub = pubsub
         self.db = db
+
+        self.chat_id = chat_id
 
     def append_file_content_to_chatlist(self, file: FilePickerFile):
         file_path = Path(file.path)
@@ -58,6 +62,7 @@ class FileLoaderController:
                 raise ValueError(f"Unsupported file type: {file.path}")
 
         msg = Message.construct_auto_file(
+            chat_id=self.chat_id,
             display_content=f"File Uploaded: {file_path.name}",
             system_content=content,
             content_type=content_type,

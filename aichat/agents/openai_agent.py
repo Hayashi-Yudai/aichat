@@ -52,6 +52,8 @@ class OpenAIAgent:
     def request(self, messages: list[Message]) -> Message:
         logger.info("Sending message to OpenAI...")
 
+        chat_id = messages[0].chat_id
+
         request_body = [self._construct_request(m) for m in messages]
         chat_completion = self.client.chat.completions.create(
             messages=request_body,
@@ -62,4 +64,4 @@ class OpenAIAgent:
             logger.error("OpenAI returned None")
             return ""
 
-        return Message.construct_auto(content, self.role)
+        return Message.construct_auto(chat_id, content, self.role)

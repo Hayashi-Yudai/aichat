@@ -31,5 +31,6 @@ class DummyAgent:
 
     def request(self, messages: list[Message]) -> Message:
         role = Role("Agent", ft.Colors.BLUE)
+        chat_id = messages[0].chat_id
 
-        return Message.construct_auto(messages[-1].display_content, role)
+        return Message.construct_auto(chat_id, messages[-1].display_content, role)
