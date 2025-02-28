@@ -43,7 +43,7 @@ class _FileLoader(ft.FilePicker):
         self.expand = True
         self.on_result = self.on_result_func
 
-        self.controller = FileLoaderController(pubsub=page.pubsub)
+        self.controller = FileLoaderController(pubsub=page.pubsub, db=db)
 
     def on_result_func(self, e: ft.ControlEvent):
         logger.debug(f"Uploaded files: {e.files}")

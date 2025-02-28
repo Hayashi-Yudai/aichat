@@ -34,8 +34,9 @@ class MessageInputController:
 
 
 class FileLoaderController:
-    def __init__(self, pubsub: ft.PubSubClient):
+    def __init__(self, pubsub: ft.PubSubClient, db: DB):
         self.pubsub = pubsub
+        self.db = db
 
     def append_file_content_to_chatlist(self, file: FilePickerFile):
         file_path = Path(file.path)
@@ -62,7 +63,7 @@ class FileLoaderController:
             content_type=content_type,
             role=Role("App", ft.Colors.GREY),
         )
-        msg.register()
+        self.db.insert_from_model(msg)
 
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)
