@@ -40,8 +40,14 @@ class SQLiteDB:
     def insert_from_model(self, m: Model):
         if not self._table_exist(m.table_name):
             logger.debug(f"{m.table_name} table does not exist. Create table...")
-            # self._create_table(m)
+            self._create_table(m)
         logger.debug(f"Data insert into {m.table_name} table")
+
+        columns = [s.column_name for s in m.schema]
+        sql = f"INSERT INTO {m.table_name} ({', '.join(columns)}) VALUES ({', '.join(['?' for _ in m.schema])});"
+        logger.debug(f"Execute SQL: {sql}")
+        with self.__get_connection() as conn:
+            conn.execute(sql, tuple(getattr(m, s.column_name) for s in m.schema))
 
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
@@ -61,7 +67,8 @@ class SQLiteDB:
             ]
         )
 
-        sql = f"CREATE TABLE ? ({schema_declaration})"
+        sql = f"CREATE TABLE {m.table_name} ({schema_declaration});"
+        logger.debug(f"Execute SQL: {sql}")
         with self.__get_connection() as conn:
             logger.debug(f"Execute SQL: {sql}")
-            conn.execute(sql, (m.table_name,))
+            conn.execute(sql, ())
