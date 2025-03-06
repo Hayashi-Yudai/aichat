@@ -38,12 +38,32 @@ class ModelSelector(ft.Dropdown):
         self.pubsub.send_all_on_topic(Topics.CHANGE_AGENT, e.data)
 
 
+class PastChatItem(ft.Container):
+    def __init__(self, page: ft.Page, db: DB, chat_id: int, text: str):
+        super().__init__()
+
+        self.expand = True
+        self.text = text
+
+        self.content = ft.Text(text)
+        self.on_click = self.on_click_func
+
+    def on_click_func(self, e: ft.ControlEvent):
+        logger.info(f"Chat ID: {self.text} clicked")
+
+
 class PastChatList(ft.ListView):
     def __init__(self, page: ft.Page, db: DB):
         super().__init__()
 
         self.expand = True
         self.padding = 10
+        self.spacing = 10
+
+        self.controls = [
+            PastChatItem(page, db, None, "test1"),
+            PastChatItem(page, db, None, "test2"),
+        ]
 
 
 class PastChatListContainer(ft.Container):
