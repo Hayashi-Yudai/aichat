@@ -5,12 +5,14 @@ from loguru import logger
 
 from agents.agent import Agent, DummyAgent, DummyModel
 from agents.openai_agent import OpenAIAgent, OpenAIModel
+from database.db import DB
 
 
 class ChatDisplayController:
-    def __init__(self, item_builder: Type[ft.Row], agent: Agent):
+    def __init__(self, item_builder: Type[ft.Row], agent: Agent, db: DB):
         self.item_builder = item_builder
         self.agent = agent
+        self.db = db
 
     def get_agent_response(self, controls: list[ft.Row]) -> ft.Row:
         messages = []
@@ -23,6 +25,7 @@ class ChatDisplayController:
 
         logger.info("Request to agent...")
         response = self.agent.request(messages)
+        self.db.insert_from_model(response)
         return self.item_builder(response)
 
     def change_agent(self, model: str):

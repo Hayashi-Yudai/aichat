@@ -44,10 +44,15 @@ class SQLiteDB:
         logger.debug(f"Data insert into {m.table_name} table")
 
         columns = [s.column_name for s in m.schema]
-        sql = f"INSERT INTO {m.table_name} ({', '.join(columns)}) VALUES ({', '.join(['?' for _ in m.schema])});"
+        sql = (
+            f"INSERT INTO {m.table_name} ({', '.join(columns)})"
+            + f" VALUES ({', '.join(['?' for _ in m.schema])});"
+        )
         logger.debug(f"Execute SQL: {sql}")
         with self.__get_connection() as conn:
-            conn.execute(sql, tuple(getattr(m, s.column_name) for s in m.schema))
+            conn.execute(
+                sql, tuple(getattr(m, f"db__{s.column_name}") for s in m.schema)
+            )
 
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"

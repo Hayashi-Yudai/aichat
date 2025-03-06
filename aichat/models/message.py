@@ -66,3 +66,31 @@ class Message:
     @property
     def table_name(self) -> str:
         return self.__class__.__name__.lower()
+
+    @property
+    def db__id(self) -> str:
+        return self.id
+
+    @property
+    def db__chat_id(self) -> str:
+        return self.chat_id
+
+    @property
+    def db__created_at(self) -> datetime:
+        return self.created_at
+
+    @property
+    def db__display_content(self) -> str:
+        return self.display_content
+
+    @property
+    def db__system_content(self) -> str:
+        return self.system_content
+
+    @property
+    def db__content_type(self) -> ContentType:
+        return self.content_type
+
+    @property
+    def db__role(self) -> str:
+        return self.role.name

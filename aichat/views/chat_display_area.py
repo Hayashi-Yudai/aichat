@@ -44,7 +44,7 @@ class _ChatMessage(ft.Row):
 
 
 class _ChatMessageList(ft.ListView):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page, agent: Agent, db: DB):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -55,7 +55,7 @@ class _ChatMessageList(ft.ListView):
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(
-            item_builder=self._item_builder, agent=agent
+            item_builder=self._item_builder, agent=agent, db=db
         )
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
@@ -88,4 +88,4 @@ class ChatMessageDisplayContainer(ft.Container):
         self.border_radius = 5
         self.padding = 10
         self.expand = True
-        self.content = _ChatMessageList(page, agent)
+        self.content = _ChatMessageList(page, agent, db)
