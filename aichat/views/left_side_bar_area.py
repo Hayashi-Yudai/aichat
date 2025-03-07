@@ -42,6 +42,9 @@ class PastChatItem(ft.Container):
     def __init__(self, page: ft.Page, chat_id: int, text: str):
         super().__init__()
 
+        self.pubsub = page.pubsub
+        self.chat_id = chat_id
+
         self.expand = True
         self.text = text
         self.padding = 10
@@ -52,7 +55,7 @@ class PastChatItem(ft.Container):
         self.on_hover = self.on_hover_func
 
     def on_click_func(self, e: ft.ControlEvent):
-        logger.info(f"Chat ID: {self.text} clicked")
+        self.pubsub.send_all_on_topic(Topics.PAST_CHAT_RESTORED, self.chat_id)
 
     def on_hover_func(self, e: ft.HoverEvent):
         self.bgcolor = ft.Colors.GREY_900 if e.data == "true" else None
@@ -74,7 +77,7 @@ class PastChatList(ft.ListView):
         chats = self.controller.collect_all_chat()
         self.controls = [PastChatItem(page, c.id, c.title) for c in chats]
 
-    def _update_controls(self, topic: str, data: list):
+    def _update_controls(self, topic: Topics, data: list):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.update_controls(self.page)
         self.update()

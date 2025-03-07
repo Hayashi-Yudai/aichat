@@ -2,10 +2,10 @@ from enum import StrEnum
 import os
 from typing import Any
 
-import flet as ft
 from loguru import logger
 from openai import OpenAI
 
+import config
 from models.role import Role
 from models.message import Message, ContentType
 
@@ -22,7 +22,7 @@ class OpenAIModel(StrEnum):
 class OpenAIAgent:
     def __init__(self, model: OpenAIModel):
         self.model = model
-        self.role = Role("Agent", ft.Colors.BLUE)
+        self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
 
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 

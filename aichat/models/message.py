@@ -55,6 +55,16 @@ class Message:
             role,
         )
 
+    @classmethod
+    def from_tuple(cls, t: tuple):
+        if t[6] == config.USER_NAME:
+            color = config.USER_AVATAR_COLOR
+        elif t[6] == config.AGENT_NAME:
+            color = config.AGENT_AVATAR_COLOR
+        else:
+            color = config.APP_AVATAR_COLOR
+        return cls(t[0], t[1], t[2], t[3], t[4], t[5], Role(t[6], color))
+
     @property
     def schema(self) -> dict[str, str]:
         return [
@@ -92,3 +102,10 @@ class Message:
                 self.role.name,
             ],
         )
+
+    @classmethod
+    def get_all_by_chat_id(cls, chat_id: int):
+        db = SQLiteDB(config.IS_DEBUG)
+        entities = db.get_all("message", condition=f"chat_id='{chat_id}'")
+
+        return [cls.from_tuple(e) for e in entities]

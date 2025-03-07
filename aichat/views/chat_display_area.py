@@ -60,6 +60,7 @@ class _ChatMessageList(ft.ListView):
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
         self.pubsub.subscribe_topic(Topics.CHANGE_AGENT, self.change_agent)
+        self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
 
     def append_new_message_to_list(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
@@ -78,6 +79,14 @@ class _ChatMessageList(ft.ListView):
     def change_agent(self, topic: Topics, model: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controller.change_agent(model)
+
+    def restore_past_chat(self, topic: Topics, chat_id: int):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+
+        messages = self.controller.get_all_messages_by_chat_id(chat_id)
+        self.controls = [self._item_builder(m) for m in messages]
+
+        self.update()
 
 
 class ChatMessageDisplayContainer(ft.Container):

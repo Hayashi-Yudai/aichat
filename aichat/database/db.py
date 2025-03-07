@@ -66,8 +66,10 @@ class SQLiteDB:
                 return True
         return False
 
-    def get_all(self, table_name: str) -> list[tuple]:
+    def get_all(self, table_name: str, condition: str | None = None) -> list[tuple]:
         sql = f"SELECT * FROM {table_name};"
+        if condition:
+            sql = sql[:-1] + f" WHERE {condition};"
         with self.__get_connection() as conn:
             return conn.execute(sql).fetchall()
 

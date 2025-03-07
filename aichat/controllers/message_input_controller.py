@@ -5,6 +5,7 @@ import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
 
+import config
 from models.message import Message, ContentType
 from models.role import Role
 from topics import Topics
@@ -18,7 +19,7 @@ class MessageInputController:
     """
 
     def __init__(self, page: ft.Page, chat_id: str):
-        self.role = Role("user", ft.Colors.GREEN)
+        self.role = Role(config.USER_NAME, config.USER_AVATAR_COLOR)
         self.pubsub = page.pubsub
 
         self.chat_id = chat_id

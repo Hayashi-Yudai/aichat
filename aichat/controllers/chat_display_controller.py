@@ -5,6 +5,7 @@ from loguru import logger
 
 from agents.agent import Agent, DummyAgent, DummyModel
 from agents.openai_agent import OpenAIAgent, OpenAIModel
+from models.message import Message
 
 
 class ChatDisplayController:
@@ -33,3 +34,6 @@ class ChatDisplayController:
             self.agent = DummyAgent()
 
         logger.debug(f"Agent model changed to: {self.agent.model}")
+
+    def get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
+        return Message.get_all_by_chat_id(chat_id)
