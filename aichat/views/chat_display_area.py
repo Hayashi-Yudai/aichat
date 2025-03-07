@@ -70,6 +70,9 @@ class _ChatMessageList(ft.ListView):
         if agent_response:
             self.controls.append(agent_response)
 
+        logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
+        self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
+
         self.update()
 
     def change_agent(self, topic: Topics, model: str):
