@@ -3,6 +3,7 @@ from loguru import logger
 
 from agents.agent import Agent, DummyModel
 from agents.openai_agent import OpenAIModel
+from controllers.left_side_bar_controller import PastChatListController
 from database.db import DB
 from topics import Topics
 
@@ -64,11 +65,13 @@ class PastChatList(ft.ListView):
         super().__init__()
 
         self.expand = True
+        self.controller = PastChatListController(db)
 
-        self.controls = [
-            PastChatItem(page, db, None, "test1"),
-            PastChatItem(page, db, None, "test2"),
-        ]
+        self.initialize_controls(page, db)
+
+    def initialize_controls(self, page: ft.Page, db: DB):
+        chats = self.controller.collect_all_chat()
+        self.controls = [PastChatItem(page, db, c.id, c.title) for c in chats]
 
 
 class PastChatListContainer(ft.Container):

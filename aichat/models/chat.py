@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Self
 
 import config
 from database.db import SQLiteDB
@@ -16,6 +17,10 @@ class Chat:
     @classmethod
     def construct_auto(cls, id: str, title: str):
         return cls(id, datetime.now(), title)
+
+    @classmethod
+    def from_tuple(cls, t: tuple):
+        return cls(*t)
 
     @property
     def schema(self) -> dict[str, str]:
@@ -40,3 +45,10 @@ class Chat:
                 self.title,
             ],
         )
+
+    @classmethod
+    def get_all(cls) -> list[Self]:
+        db = SQLiteDB(config.IS_DEBUG)
+        entities = db.get_all("chat")
+
+        return [cls.from_tuple(e) for e in entities]

@@ -66,6 +66,11 @@ class SQLiteDB:
                 return True
         return False
 
+    def get_all(self, table_name: str) -> list[tuple]:
+        sql = f"SELECT * FROM {table_name};"
+        with self.__get_connection() as conn:
+            return conn.execute(sql).fetchall()
+
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         with self.__get_connection() as conn:
