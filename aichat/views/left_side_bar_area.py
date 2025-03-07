@@ -44,12 +44,19 @@ class PastChatItem(ft.Container):
 
         self.expand = True
         self.text = text
+        self.padding = 10
+        self.spacing = 10
 
         self.content = ft.Text(text)
         self.on_click = self.on_click_func
+        self.on_hover = self.on_hover_func
 
     def on_click_func(self, e: ft.ControlEvent):
         logger.info(f"Chat ID: {self.text} clicked")
+
+    def on_hover_func(self, e: ft.HoverEvent):
+        self.bgcolor = ft.Colors.GREY_900 if e.data == "true" else None
+        self.update()
 
 
 class PastChatList(ft.ListView):
@@ -57,8 +64,6 @@ class PastChatList(ft.ListView):
         super().__init__()
 
         self.expand = True
-        self.padding = 10
-        self.spacing = 10
 
         self.controls = [
             PastChatItem(page, db, None, "test1"),
