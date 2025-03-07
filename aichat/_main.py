@@ -1,3 +1,5 @@
+import uuid
+
 import flet as ft
 from loguru import logger
 
@@ -13,6 +15,9 @@ def main(page: ft.Page):
 
     logger.debug("Initialize agent...")
     agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
+
+    # Session Variables
+    page.session.set("chat_id", str(uuid.uuid4()))
 
     # Widgets
     user_message_area = UserMessageArea(page=page)

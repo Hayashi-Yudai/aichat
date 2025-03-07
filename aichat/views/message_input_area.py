@@ -1,5 +1,3 @@
-import uuid
-
 import flet as ft
 from loguru import logger
 
@@ -7,13 +5,15 @@ from controllers.message_input_controller import (
     MessageInputController,
     FileLoaderController,
 )
+from topics import Topics
 
 
 class _MessageInputArea(ft.TextField):
-    def __init__(self, page: ft.Page, chat_id: str):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.pubsub = page.pubsub
+        self.session = page.session
 
         self.hint_text = "Write a message..."
         self.autofocus = True
@@ -24,32 +24,39 @@ class _MessageInputArea(ft.TextField):
         self.expand = True
         self.value = ""
 
-        self.controller = MessageInputController(page=page, chat_id=chat_id)
+        self.controller = MessageInputController(page=page)
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):
-        self.controller.send_message(e.control.value)
+        self.controller.send_message(self.session.get("chat_id"), e.control.value)
         self.value = ""
 
         self.focus()
         self.update()
 
+    def change_chat_id(self, topic: Topics, chat_id: str):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controller.chat_id = chat_id
+
 
 class _FileLoader(ft.FilePicker):
-    def __init__(self, page: ft.Page, chat_id: str):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.pubsub = page.pubsub
+        self.session = page.session
 
         self.expand = True
         self.on_result = self.on_result_func
 
-        self.controller = FileLoaderController(pubsub=page.pubsub, chat_id=chat_id)
+        self.controller = FileLoaderController(pubsub=page.pubsub)
 
     def on_result_func(self, e: ft.ControlEvent):
         logger.debug(f"Uploaded files: {e.files}")
         for f in e.files:
-            self.controller.append_file_content_to_chatlist(f)
+            self.controller.append_file_content_to_chatlist(
+                self.session.get("chat_id"), f
+            )
 
         self.update()
 
@@ -60,18 +67,15 @@ class UserMessageArea(ft.Row):
 
         self.pubsub = page.pubsub
 
-        # Variables
-        self.chat_id = str(uuid.uuid4())
-
         # Widgets
-        self.file_picker = _FileLoader(page=page, chat_id=self.chat_id)
+        self.file_picker = _FileLoader(page=page)
 
         self.file_loader_icon = ft.IconButton(
             icon=ft.Icons.ADD,
             tooltip="Upload file",
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
         )
-        self.message_input_area = _MessageInputArea(page=page, chat_id=self.chat_id)
+        self.message_input_area = _MessageInputArea(page=page)
         self.send_message_icon = ft.IconButton(
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",

@@ -43,6 +43,7 @@ class PastChatItem(ft.Container):
         super().__init__()
 
         self.pubsub = page.pubsub
+        self.session = page.session
         self.chat_id = chat_id
 
         self.expand = True
@@ -55,6 +56,7 @@ class PastChatItem(ft.Container):
         self.on_hover = self.on_hover_func
 
     def on_click_func(self, e: ft.ControlEvent):
+        self.session.set("chat_id", self.chat_id)
         self.pubsub.send_all_on_topic(Topics.PAST_CHAT_RESTORED, self.chat_id)
 
     def on_hover_func(self, e: ft.HoverEvent):
