@@ -2,13 +2,14 @@ from datetime import datetime
 from enum import StrEnum
 import uuid
 
-# from loguru import logger
+from loguru import logger
 from pydantic.dataclasses import dataclass
 
 
 import config
 from database.db import SQLiteDB
 from models.model import Schema
+from models.chat import Chat
 from models.role import Role
 
 
@@ -72,6 +73,12 @@ class Message:
 
     def insert_into_db(self):
         db = SQLiteDB(config.IS_DEBUG)
+        if not db.entry_exist(table_name="chat", condition=f"id='{self.chat_id}'"):
+            logger.info(f"chat_id={self.chat_id} does not exist. Create chat...")
+            Chat.construct_auto(
+                self.chat_id, self.display_content[:20]
+            ).insert_into_db()
+
         db.insert(
             table_name=self.table_name,
             schema=self.schema,

@@ -68,7 +68,7 @@ class FileLoaderController:
             content_type=content_type,
             role=Role("App", ft.Colors.GREY),
         )
-        self.db.insert_from_model(msg)
+        msg.insert_into_db()
 
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)

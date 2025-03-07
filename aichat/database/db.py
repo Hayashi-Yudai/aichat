@@ -53,6 +53,19 @@ class SQLiteDB:
         with self.__get_connection() as conn:
             conn.execute(sql, values)
 
+    def entry_exist(self, table_name: str, condition: str) -> bool:
+        sql = f"SELECT * FROM {table_name} WHERE {condition};"
+        with self.__get_connection() as conn:
+            try:
+                res = conn.execute(sql)
+            except sqlite3.OperationalError:
+                """e.g. Table does not exist"""
+                return False
+
+            if res.fetchone():
+                return True
+        return False
+
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
         with self.__get_connection() as conn:
