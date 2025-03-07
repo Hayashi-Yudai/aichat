@@ -67,9 +67,9 @@ class PastChatList(ft.ListView):
         self.expand = True
         self.controller = PastChatListController(db)
 
-        self.initialize_controls(page, db)
+        self.update_controls(page, db)
 
-    def initialize_controls(self, page: ft.Page, db: DB):
+    def update_controls(self, page: ft.Page, db: DB):
         chats = self.controller.collect_all_chat()
         self.controls = [PastChatItem(page, db, c.id, c.title) for c in chats]
 
