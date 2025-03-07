@@ -28,7 +28,7 @@ class MessageInputController:
     def send_message(self, text: str):
         # User messageの追加
         msg = Message.construct_auto(self.chat_id, text, self.role)
-        self.db.insert_from_model(msg)
+        msg.insert_into_db()
 
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)

@@ -5,7 +5,7 @@ from typing import Protocol
 from loguru import logger
 
 import config
-from models.model import Model
+from models.model import Schema
 
 
 def _adapt_datetime(dt: datetime):
@@ -18,7 +18,7 @@ def _convert_datetime(text: bytes):
 
 
 class DB(Protocol):
-    def insert_from_model(self, m: Model):
+    def insert(self, table_name: str, schema: list[Schema], values: list):
         pass
 
 
@@ -37,22 +37,21 @@ class SQLiteDB:
     def __get_connection(self):
         return sqlite3.connect(self.db_name, detect_types=sqlite3.PARSE_DECLTYPES)
 
-    def insert_from_model(self, m: Model):
-        if not self._table_exist(m.table_name):
-            logger.debug(f"{m.table_name} table does not exist. Create table...")
-            self._create_table(m)
-        logger.debug(f"Data insert into {m.table_name} table")
+    def insert(self, table_name: str, schema: list[Schema], values: list):
+        if not self._table_exist(table_name):
+            logger.debug(f"{table_name} table does not exist. Create table...")
+            self._create_table(table_name, schema)
 
-        columns = [s.column_name for s in m.schema]
+        logger.debug(f"Data insert into {table_name} table")
+
+        columns = [s.column_name for s in schema]
         sql = (
-            f"INSERT INTO {m.table_name} ({', '.join(columns)})"
-            + f" VALUES ({', '.join(['?' for _ in m.schema])});"
+            f"INSERT INTO {table_name} ({', '.join(columns)})"
+            + f" VALUES ({', '.join(['?' for _ in schema])});"
         )
         logger.debug(f"Execute SQL: {sql}")
         with self.__get_connection() as conn:
-            conn.execute(
-                sql, tuple(getattr(m, f"db__{s.column_name}") for s in m.schema)
-            )
+            conn.execute(sql, values)
 
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
@@ -61,18 +60,18 @@ class SQLiteDB:
                 return True
         return False
 
-    def _create_table(self, m: Model):
-        logger.info(f"Create {m.table_name} table...")
+    def _create_table(self, table_name: str, schema: list[Schema]):
+        logger.info(f"Create {table_name} table...")
         schema_declaration = ", ".join(
             [
                 f"{s.column_name} {s.column_type} "
                 + f"{'PRIMARY KEY' if s.is_primary_key else ''} "
                 + f"{'NOT NULL' if not s.is_nullable and not s.is_primary_key else ''}"
-                for s in m.schema
+                for s in schema
             ]
         )
 
-        sql = f"CREATE TABLE {m.table_name} ({schema_declaration});"
+        sql = f"CREATE TABLE {table_name} ({schema_declaration});"
         logger.debug(f"Execute SQL: {sql}")
         with self.__get_connection() as conn:
             logger.debug(f"Execute SQL: {sql}")

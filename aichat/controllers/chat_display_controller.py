@@ -25,7 +25,7 @@ class ChatDisplayController:
 
         logger.info("Request to agent...")
         response = self.agent.request(messages)
-        self.db.insert_from_model(response)
+        response.insert_into_db()
         return self.item_builder(response)
 
     def change_agent(self, model: str):
