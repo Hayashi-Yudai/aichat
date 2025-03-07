@@ -5,7 +5,6 @@ import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
 
-from database.db import DB
 from models.message import Message, ContentType
 from models.role import Role
 from topics import Topics
@@ -18,10 +17,9 @@ class MessageInputController:
     ユーザーがサブミット時にチャット欄に書いた入力を受取り、処理を実行する責務をもつ
     """
 
-    def __init__(self, page: ft.Page, db: DB, chat_id: str):
+    def __init__(self, page: ft.Page, chat_id: str):
         self.role = Role("user", ft.Colors.GREEN)
         self.pubsub = page.pubsub
-        self.db = db
 
         self.chat_id = chat_id
 
@@ -36,9 +34,8 @@ class MessageInputController:
 
 
 class FileLoaderController:
-    def __init__(self, pubsub: ft.PubSubClient, db: DB, chat_id: str):
+    def __init__(self, pubsub: ft.PubSubClient, chat_id: str):
         self.pubsub = pubsub
-        self.db = db
 
         self.chat_id = chat_id
 

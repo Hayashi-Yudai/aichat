@@ -2,7 +2,6 @@ import flet as ft
 from loguru import logger
 
 from agents.agent import Agent
-from database.db import DB
 from models.message import Message
 
 from controllers.chat_display_controller import ChatDisplayController
@@ -44,7 +43,7 @@ class _ChatMessage(ft.Row):
 
 
 class _ChatMessageList(ft.ListView):
-    def __init__(self, page: ft.Page, agent: Agent, db: DB):
+    def __init__(self, page: ft.Page, agent: Agent):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -55,7 +54,7 @@ class _ChatMessageList(ft.ListView):
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(
-            item_builder=self._item_builder, agent=agent, db=db
+            item_builder=self._item_builder, agent=agent
         )
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
@@ -79,7 +78,7 @@ class _ChatMessageList(ft.ListView):
 
 
 class ChatMessageDisplayContainer(ft.Container):
-    def __init__(self, page: ft.Page, agent: Agent, db: DB):
+    def __init__(self, page: ft.Page, agent: Agent):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -88,4 +87,4 @@ class ChatMessageDisplayContainer(ft.Container):
         self.border_radius = 5
         self.padding = 10
         self.expand = True
-        self.content = _ChatMessageList(page, agent, db)
+        self.content = _ChatMessageList(page, agent)

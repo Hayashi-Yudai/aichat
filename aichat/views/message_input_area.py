@@ -3,7 +3,6 @@ import uuid
 import flet as ft
 from loguru import logger
 
-from database.db import DB
 from controllers.message_input_controller import (
     MessageInputController,
     FileLoaderController,
@@ -11,7 +10,7 @@ from controllers.message_input_controller import (
 
 
 class _MessageInputArea(ft.TextField):
-    def __init__(self, page: ft.Page, db: DB, chat_id: str):
+    def __init__(self, page: ft.Page, chat_id: str):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -25,7 +24,7 @@ class _MessageInputArea(ft.TextField):
         self.expand = True
         self.value = ""
 
-        self.controller = MessageInputController(page=page, db=db, chat_id=chat_id)
+        self.controller = MessageInputController(page=page, chat_id=chat_id)
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):
@@ -37,7 +36,7 @@ class _MessageInputArea(ft.TextField):
 
 
 class _FileLoader(ft.FilePicker):
-    def __init__(self, page: ft.Page, db: DB, chat_id: str):
+    def __init__(self, page: ft.Page, chat_id: str):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -45,9 +44,7 @@ class _FileLoader(ft.FilePicker):
         self.expand = True
         self.on_result = self.on_result_func
 
-        self.controller = FileLoaderController(
-            pubsub=page.pubsub, db=db, chat_id=chat_id
-        )
+        self.controller = FileLoaderController(pubsub=page.pubsub, chat_id=chat_id)
 
     def on_result_func(self, e: ft.ControlEvent):
         logger.debug(f"Uploaded files: {e.files}")
@@ -58,7 +55,7 @@ class _FileLoader(ft.FilePicker):
 
 
 class UserMessageArea(ft.Row):
-    def __init__(self, page: ft.Page, db: DB):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -67,16 +64,14 @@ class UserMessageArea(ft.Row):
         self.chat_id = str(uuid.uuid4())
 
         # Widgets
-        self.file_picker = _FileLoader(page=page, db=db, chat_id=self.chat_id)
+        self.file_picker = _FileLoader(page=page, chat_id=self.chat_id)
 
         self.file_loader_icon = ft.IconButton(
             icon=ft.Icons.ADD,
             tooltip="Upload file",
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
         )
-        self.message_input_area = _MessageInputArea(
-            page=page, db=db, chat_id=self.chat_id
-        )
+        self.message_input_area = _MessageInputArea(page=page, chat_id=self.chat_id)
         self.send_message_icon = ft.IconButton(
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",

@@ -4,12 +4,11 @@ from loguru import logger
 from agents.agent import Agent, DummyModel
 from agents.openai_agent import OpenAIModel
 from controllers.left_side_bar_controller import PastChatListController
-from database.db import DB
 from topics import Topics
 
 
 class NewChatButton(ft.IconButton):
-    def __init__(self, page: ft.Page, db: DB):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.icon = ft.Icons.OPEN_IN_NEW_ROUNDED
@@ -18,7 +17,7 @@ class NewChatButton(ft.IconButton):
 
 
 class ModelSelector(ft.Dropdown):
-    def __init__(self, page: ft.Page, default_agent: Agent, db: DB):
+    def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
         dummy_model = [ft.dropdown.Option(m) for m in DummyModel]
@@ -40,7 +39,7 @@ class ModelSelector(ft.Dropdown):
 
 
 class PastChatItem(ft.Container):
-    def __init__(self, page: ft.Page, db: DB, chat_id: int, text: str):
+    def __init__(self, page: ft.Page, chat_id: int, text: str):
         super().__init__()
 
         self.expand = True
@@ -61,21 +60,21 @@ class PastChatItem(ft.Container):
 
 
 class PastChatList(ft.ListView):
-    def __init__(self, page: ft.Page, db: DB):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.expand = True
-        self.controller = PastChatListController(db)
+        self.controller = PastChatListController()
 
-        self.update_controls(page, db)
+        self.update_controls(page)
 
-    def update_controls(self, page: ft.Page, db: DB):
+    def update_controls(self, page: ft.Page):
         chats = self.controller.collect_all_chat()
-        self.controls = [PastChatItem(page, db, c.id, c.title) for c in chats]
+        self.controls = [PastChatItem(page, c.id, c.title) for c in chats]
 
 
 class PastChatListContainer(ft.Container):
-    def __init__(self, content: ft.Control, db: DB):
+    def __init__(self, content: ft.Control):
         super().__init__()
 
         self.content = content
@@ -86,7 +85,7 @@ class PastChatListContainer(ft.Container):
 
 
 class LeftSideBarArea(ft.Column):
-    def __init__(self, page: ft.Page, default_agent: Agent, db: DB):
+    def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
         self.expand = False
@@ -94,11 +93,11 @@ class LeftSideBarArea(ft.Column):
         self.spacing = 10
 
         # Widgets
-        new_chat_button = NewChatButton(page, db)
-        model_selector = ModelSelector(page, default_agent, db)
+        new_chat_button = NewChatButton(page)
+        model_selector = ModelSelector(page, default_agent)
 
-        past_chat_list = PastChatList(page, db)
-        past_chat_list_container = PastChatListContainer(content=past_chat_list, db=db)
+        past_chat_list = PastChatList(page)
+        past_chat_list_container = PastChatListContainer(content=past_chat_list)
 
         self.controls = [
             ft.Row([new_chat_button, model_selector], expand=False, tight=True),
