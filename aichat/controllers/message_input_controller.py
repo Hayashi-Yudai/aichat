@@ -4,6 +4,7 @@ from pathlib import Path
 import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
+import pdfplumber
 
 import config
 from models.message import Message, ContentType
@@ -39,10 +40,6 @@ class FileLoaderController:
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
         file_path = Path(file.path)
         match file_path.suffix.lstrip(".").lower():
-            case "txt" | "py" | "md" | "json" | "yaml" | "yml":
-                with open(file.path, "r") as f:
-                    content = f.read()
-                content_type = ContentType.TEXT
             case "png":
                 with open(file.path, "rb") as f:
                     content = base64.b64encode(f.read()).decode("utf-8")
@@ -51,9 +48,17 @@ class FileLoaderController:
                 with open(file.path, "rb") as f:
                     content = base64.b64encode(f.read()).decode("utf-8")
                 content_type = ContentType.JPEG
+            case "pdf":
+                content = self.parse_pdf(file.path)
+                content_type = ContentType.TEXT
             case _:
-                logger.error(f"Unsupported file type: {file.path}")
-                raise ValueError(f"Unsupported file type: {file.path}")
+                try:
+                    with open(file.path, "r") as f:
+                        content = f.read()
+                    content_type = ContentType.TEXT
+                except UnicodeDecodeError:
+                    logger.error(f"Unsupported file type: {file.path}")
+                    raise ValueError(f"Unsupported file type: {file.path}")
 
         msg = Message.construct_auto_file(
             chat_id=chat_id,
@@ -67,3 +72,11 @@ class FileLoaderController:
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, msg)
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
+
+    def parse_pdf(self, file_path: str) -> str:
+        with pdfplumber.open(file_path) as pdf:
+            text = ""
+            for page in pdf.pages:
+                text += page.extract_text()
+
+        return text
