@@ -1,9 +1,11 @@
 import base64
+import os
 from pathlib import Path
 
 import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
+from mistralai import Mistral
 import pdfplumber
 
 import config
@@ -74,9 +76,37 @@ class FileLoaderController:
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
     def parse_pdf(self, file_path: str) -> str:
-        with pdfplumber.open(file_path) as pdf:
-            text = ""
-            for page in pdf.pages:
-                text += page.extract_text()
+        text = ""
+        if os.environ.get("MISTRAL_API_KEY") is not None:
+            logger.info("Using Mistral OCR to parse PDF")
+            client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
+
+            logger.info(f"Uploading PDF to Mistral...: {file_path}")
+            uploaded_pdf = client.files.upload(
+                file={
+                    "file_name": file_path.split("/")[-1],
+                    "content": open(file_path, "rb"),
+                },
+                purpose="ocr",
+            )
+
+            signed_url = client.files.get_signed_url(file_id=uploaded_pdf.id)
+
+            logger.info("Processing PDF with Mistral OCR...")
+            ocr_response = client.ocr.process(
+                model="mistral-ocr-latest",
+                document={
+                    "type": "document_url",
+                    "document_url": signed_url.url,
+                },
+                include_image_base64=True,
+            )
+            for p in ocr_response.pages:
+                text += p.markdown + " "
+        else:
+            logger.info("Using pdfplumber to parse PDF")
+            with pdfplumber.open(file_path) as pdf:
+                for page in pdf.pages:
+                    text += page.extract_text()
 
         return text
