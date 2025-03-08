@@ -22,7 +22,7 @@ class DummyAgent:
     デバッグ用のエージェント
     """
 
-    def __init__(self):
+    def __init__(self, model: str):
         self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
         self.model = DummyModel.DUMMY
 

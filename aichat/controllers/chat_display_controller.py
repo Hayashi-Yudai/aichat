@@ -3,9 +3,7 @@ from typing import Type
 import flet as ft
 from loguru import logger
 
-from agents.agent import Agent, DummyAgent, DummyModel
-from agents.openai_agent import OpenAIAgent, OpenAIModel
-from agents.gemini_agent import GeminiAgent, GeminiModel
+from agents import Agent, model_agent_map
 from models.message import Message
 
 
@@ -29,12 +27,7 @@ class ChatDisplayController:
         return self.item_builder(response)
 
     def change_agent(self, model: str):
-        if model in OpenAIModel:
-            self.agent = OpenAIAgent(model)
-        elif model in DummyModel:
-            self.agent = DummyAgent()
-        elif model in GeminiModel:
-            self.agent = GeminiAgent(model)
+        self.agent = model_agent_map[model]
 
         logger.debug(f"Agent model changed to: {self.agent.model}")
 
