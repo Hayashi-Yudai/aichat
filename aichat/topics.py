@@ -6,3 +6,4 @@ class Topics(Enum):
     UPDATE_CHAT = auto()
     CHANGE_AGENT = auto()
     PAST_CHAT_RESTORED = auto()
+    NEW_CHAT = auto()

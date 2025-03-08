@@ -1,3 +1,5 @@
+import uuid
+
 import flet as ft
 from loguru import logger
 
@@ -11,9 +13,19 @@ class NewChatButton(ft.IconButton):
     def __init__(self, page: ft.Page):
         super().__init__()
 
+        self.pubsub = page.pubsub
+        self.session = page.session
+
         self.icon = ft.Icons.OPEN_IN_NEW_ROUNDED
         self.toolchip = "New Chat"
         self.color = ft.Colors.GREEN
+
+        self.on_click = self.on_click_func
+
+    def on_click_func(self, e: ft.ControlEvent):
+        logger.info(f"{self.__class__.__name__} published topic: {Topics.NEW_CHAT}")
+        self.session.set("chat_id", str(uuid.uuid4()))
+        self.pubsub.send_all_on_topic(Topics.NEW_CHAT, None)
 
 
 class ModelSelector(ft.Dropdown):
