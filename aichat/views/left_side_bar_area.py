@@ -3,8 +3,7 @@ import uuid
 import flet as ft
 from loguru import logger
 
-from agents.agent import Agent, DummyModel
-from agents.openai_agent import OpenAIModel
+from agents import Agent, all_models
 from controllers.left_side_bar_controller import PastChatListController
 from topics import Topics
 
@@ -32,9 +31,7 @@ class ModelSelector(ft.Dropdown):
     def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
-        dummy_model = [ft.dropdown.Option(m) for m in DummyModel]
-        openai_models = [ft.dropdown.Option(m) for m in OpenAIModel]
-        self.options = dummy_model + openai_models
+        self.options = [ft.dropdown.Option(m) for m in all_models]
 
         self.value = default_agent.model
 
