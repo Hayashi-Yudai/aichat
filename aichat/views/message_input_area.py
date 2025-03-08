@@ -80,7 +80,7 @@ class UserMessageArea(ft.Row):
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",
             on_click=lambda _: self.message_input_area.controller.send_message(
-                self.message_input_area.value
+                page.session.get("chat_id"), self.message_input_area.value
             ),
         )
 
