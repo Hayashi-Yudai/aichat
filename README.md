@@ -73,13 +73,13 @@ class YOURAGENT:
     def request(self, messages: list[Message]) -> Message:
         """Sends a request to the agent and returns the response."""
 
+        chat_id = messages[0].chat_id
         #Construct the request based on ALL the messages, not just one.
-        request_payload = self._construct_request(messages) # You probably need to adjust _construct_request
+        request_payload = [self._construct_request(m) for m in messages] # You probably need to adjust _construct_request
 
         response = ...  # Get response from agent (using self.client and request_payload)
 
-        # Assuming chat_id and content are extracted from the response, and construct_auto is a class method.
-        #  Also assuming you meant a static method, and added the decorator
+        #  Assuming you meant a static method, and added the decorator
         return Message.construct_auto(chat_id, content, self.role)
 ```
 
