@@ -5,6 +5,7 @@ from loguru import logger
 
 from agents.agent import Agent, DummyAgent, DummyModel
 from agents.openai_agent import OpenAIAgent, OpenAIModel
+from agents.gemini_agent import GeminiAgent, GeminiModel
 from models.message import Message
 
 
@@ -32,6 +33,8 @@ class ChatDisplayController:
             self.agent = OpenAIAgent(model)
         elif model in DummyModel:
             self.agent = DummyAgent()
+        elif model in GeminiModel:
+            self.agent = GeminiAgent(model)
 
         logger.debug(f"Agent model changed to: {self.agent.model}")
 
