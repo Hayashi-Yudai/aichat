@@ -1,4 +1,0 @@
-CREATE TABLE IF NOT EXISTS chat (
-  id          STRING PRIMARY KEY, 
-  created_at  DATETIME NOT NULL
-);

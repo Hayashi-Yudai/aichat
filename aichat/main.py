@@ -1,49 +1,46 @@
-from datetime import datetime
 import uuid
 
 import flet as ft
 from loguru import logger
 
-from agent_config import model_agent_mapping, DEFAULT_MODEL
-from roles import User, System
-from components.chat_space import MainView
-from components.left_side_bar import LeftSideBar
-
-from tables import ChatTable
-from db import DB
-
-USER_NAME = "Yudai"
-DEBUG = False
+from agents.openai_agent import OpenAIAgent, OpenAIModel
+from views.message_input_area import UserMessageArea
+from views.chat_display_area import ChatMessageDisplayContainer
+from views.left_side_bar_area import LeftSideBarArea
 
 
-def main(page: ft.Page, database: DB):
-    logger.info("Starting Flet Chat")
+def main(page: ft.Page):
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
-    page.title = "Flet Chat"
-    page.window.width = 1200
-    page.window.height = 800
+    page.title = "AI Chat"
 
-    page.session.set("chat_history", [])  # list[ChatMessage]
+    logger.debug("Initialize agent...")
+    agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
+
+    # Session Variables
     page.session.set("chat_id", str(uuid.uuid4()))
-    page.session.set("agent", model_agent_mapping("Dummy" if DEBUG else DEFAULT_MODEL))
-    page.session.set("user", User(USER_NAME, ft.Colors.GREEN))
-    page.session.set("app_agent", System("App", ft.Colors.GREY))
 
-    chat_started_at = datetime.now()
-    ChatTable(page.session.get("chat_id"), chat_started_at).insert_into(database)
+    # Widgets
+    user_message_area = UserMessageArea(page=page)
+    chat_messages_display_container = ChatMessageDisplayContainer(
+        page=page, agent=agent
+    )
+    left_side_bar_area = LeftSideBarArea(page=page, default_agent=agent)
 
-    left_side_bar = LeftSideBar(page, db=database, width=330)
-    main_view = MainView(page, database)
+    # overlayにwidgetを登録
+    page.overlay.extend([user_message_area.file_picker])
 
     page.add(
         ft.Row(
-            [left_side_bar, main_view],
+            [
+                left_side_bar_area,
+                ft.Column(
+                    [chat_messages_display_container, user_message_area], expand=True
+                ),
+            ],
             expand=True,
         )
     )
 
 
 if __name__ == "__main__":
-    db_name = "chat_dbg.db" if DEBUG else "chat.db"
-    database = DB(db_name)
-    ft.app(target=lambda page: main(page, database))
+    ft.app(target=main)
