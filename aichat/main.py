@@ -10,6 +10,7 @@ from views.left_side_bar_area import LeftSideBarArea
 
 
 def main(page: ft.Page):
+    page.window.width = 1000
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
 

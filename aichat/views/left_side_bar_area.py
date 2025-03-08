@@ -110,7 +110,7 @@ class LeftSideBarArea(ft.Column):
         super().__init__()
 
         self.expand = False
-        self.width = 250
+        self.width = 300
         self.spacing = 10
 
         # Widgets

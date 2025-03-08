@@ -1,7 +1,7 @@
 import flet as ft
 
 
-IS_DEBUG = True
+IS_DEBUG = False
 
 # Database
 DB_NAME = "aichat.db"

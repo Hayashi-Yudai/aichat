@@ -71,7 +71,11 @@ class SQLiteDB:
         if condition:
             sql = sql[:-1] + f" WHERE {condition};"
         with self.__get_connection() as conn:
-            return conn.execute(sql).fetchall()
+            try:
+                return conn.execute(sql).fetchall()
+            except sqlite3.OperationalError:
+                """e.g. Table does not exist"""
+                return []
 
     def _table_exist(self, table_name: str) -> bool:
         sql = "SELECT name FROM sqlite_master WHERE type='table' AND name=?"
