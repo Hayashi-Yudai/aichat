@@ -33,9 +33,11 @@ class ClaudeAgent:
         ):
             request["content"] = [
                 {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/{message.content_type};base64,{message.system_content}"
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": f"image/{message.content_type}",
+                        "data": message.system_content,
                     },
                 }
             ]
