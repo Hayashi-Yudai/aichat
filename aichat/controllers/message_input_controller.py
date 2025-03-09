@@ -42,40 +42,60 @@ class FileLoaderController:
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
         self.pubsub.send_all_on_topic(Topics.START_SUBMISSION, "Processing file...")
         file_path = Path(file.path)
+        messages = []
         match file_path.suffix.lstrip(".").lower():
             case "png":
                 with open(file.path, "rb") as f:
                     content = base64.b64encode(f.read()).decode("utf-8")
-                content_type = ContentType.PNG
+
+                msg = Message.construct_auto_file(
+                    chat_id=chat_id,
+                    display_content=f"File Uploaded: {file_path.name}",
+                    system_content=content,
+                    content_type=ContentType.PNG,
+                    role=Role("App", ft.Colors.GREY),
+                )
+                msg.insert_into_db()
+                messages.append(msg)
             case "jpg" | "jpeg":
                 with open(file.path, "rb") as f:
                     content = base64.b64encode(f.read()).decode("utf-8")
-                content_type = ContentType.JPEG
+                msg = Message.construct_auto_file(
+                    chat_id=chat_id,
+                    display_content=f"File Uploaded: {file_path.name}",
+                    system_content=content,
+                    content_type=ContentType.JPEG,
+                    role=Role("App", ft.Colors.GREY),
+                )
+                msg.insert_into_db()
+                messages.append(msg)
             case "pdf":
-                content, content_type = self.parse_pdf(file.path)
+                messages.extend(self.parse_pdf(file.path, chat_id))
+                for m in messages:
+                    m.insert_into_db()
             case _:
                 try:
                     with open(file.path, "r") as f:
                         content = f.read()
-                    content_type = ContentType.TEXT
+
+                    msg = Message.construct_auto_file(
+                        chat_id=chat_id,
+                        display_content=f"File Uploaded: {file_path.name}",
+                        system_content=content,
+                        content_type=ContentType.TEXT,
+                        role=Role("App", ft.Colors.GREY),
+                    )
+                    msg.insert_into_db()
+                    messages.append(msg)
                 except UnicodeDecodeError:
                     logger.error(f"Unsupported file type: {file.path}")
                     raise ValueError(f"Unsupported file type: {file.path}")
 
-        msg = Message.construct_auto_file(
-            chat_id=chat_id,
-            display_content=f"File Uploaded: {file_path.name}",
-            system_content=content,
-            content_type=content_type,
-            role=Role("App", ft.Colors.GREY),
-        )
-        msg.insert_into_db()
-
         topic = Topics.SUBMIT_MESSAGE
-        self.pubsub.send_all_on_topic(topic, [msg])
+        self.pubsub.send_all_on_topic(topic, messages)
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
-    def parse_pdf(self, file_path: str) -> str:
+    def parse_pdf(self, file_path: str, chat_id: str) -> list[Message]:
         text = ""
         if config.USE_MISTRAL_OCR and os.environ.get("MISTRAL_API_KEY"):
             logger.info("Using Mistral OCR to parse PDF")
@@ -107,14 +127,45 @@ class FileLoaderController:
                     logger.debug(p.markdown)
                 text += p.markdown + " "
 
-            # text = ocr_response.pages[6].images[0].image_base64
-            content_type = ContentType.TEXT
+            messages = [
+                Message.construct_auto_file(
+                    chat_id,
+                    display_content=f"File Uploaded: {file_path.rsplit('/', 1)[-1]}",
+                    system_content=text,
+                    content_type=ContentType.TEXT,
+                    role=Role("App", ft.Colors.GREY),
+                )
+            ]
+            for page in ocr_response.pages:
+                if len(page.images) == 0:
+                    continue
+
+                for img in page.images:
+                    messages.append(
+                        Message.construct_auto_file(
+                            chat_id,
+                            display_content=f"Image: {img.id}",
+                            system_content=img.image_base64.replace(
+                                "data:image/jpeg;base64,", ""
+                            ),
+                            content_type=ContentType.JPEG,
+                            role=Role("App", ft.Colors.GREY),
+                        )
+                    )
         else:
             logger.info("Using pdfplumber to parse PDF")
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
                     text += page.extract_text()
 
-            content_type = ContentType.TEXT
+            messages = [
+                Message.construct_auto_file(
+                    chat_id,
+                    display_content=f"File Uploaded: {file_path.name}",
+                    system_content=text,
+                    content_type=ContentType.TEXT,
+                    role=Role("App", ft.Colors.GREY),
+                )
+            ]
 
-        return text, content_type
+        return messages

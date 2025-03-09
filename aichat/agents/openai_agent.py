@@ -36,12 +36,13 @@ class OpenAIAgent:
             or message.content_type == ContentType.JPEG
         ):
             request["content"] = [
+                {"type": "text", "text": message.display_content},
                 {
                     "type": "image_url",
                     "image_url": {
                         "url": f"data:image/{message.content_type};base64,{message.system_content}"
                     },
-                }
+                },
             ]
         else:
             logger.error(f"Invalid content type: {message.content_type}")

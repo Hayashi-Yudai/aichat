@@ -2,7 +2,7 @@ import flet as ft
 
 
 IS_DEBUG = True
-USE_MISTRAL_OCR = False
+USE_MISTRAL_OCR = True
 
 # Database
 DB_NAME = "aichat.db"
