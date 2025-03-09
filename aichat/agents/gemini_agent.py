@@ -34,10 +34,11 @@ class GeminiAgent:
             or message.content_type == ContentType.JPEG
         ):
             request["parts"] = [
+                {"text": message.display_content},
                 {
                     "mime_type": f"image/{message.content_type}",
                     "data": message.system_content,
-                }
+                },
             ]
         else:
             logger.error(f"Invalid content type: {message.content_type}")

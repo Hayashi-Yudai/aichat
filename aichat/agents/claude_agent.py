@@ -33,13 +33,17 @@ class ClaudeAgent:
         ):
             request["content"] = [
                 {
+                    "type": "text",
+                    "text": message.display_content,
+                },
+                {
                     "type": "image",
                     "source": {
                         "type": "base64",
                         "media_type": f"image/{message.content_type}",
                         "data": message.system_content,
                     },
-                }
+                },
             ]
         else:
             logger.error(f"Invalid content type: {message.content_type}")

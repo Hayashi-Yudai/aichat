@@ -31,18 +31,6 @@ class DeepSeekAgent:
 
         if message.content_type == ContentType.TEXT:
             request["content"] = message.system_content
-        elif (
-            message.content_type == ContentType.PNG
-            or message.content_type == ContentType.JPEG
-        ):
-            request["content"] = [
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/{message.content_type};base64,{message.system_content}"
-                    },
-                }
-            ]
         else:
             logger.error(f"Invalid content type: {message.content_type}")
             raise ValueError(f"Invalid content type: {message.content_type}")
