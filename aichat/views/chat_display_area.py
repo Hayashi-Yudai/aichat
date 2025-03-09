@@ -89,11 +89,11 @@ class _ChatMessageList(ft.ListView):
 
         agent_response = self.controller.get_agent_response(self.controls)
         if agent_response:
+            self.controls.pop()
             self.controls.append(agent_response)
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
-        self.controls.pop(-2)
 
         self.update()
 
