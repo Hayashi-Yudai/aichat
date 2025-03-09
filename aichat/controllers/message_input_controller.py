@@ -77,7 +77,7 @@ class FileLoaderController:
 
     def parse_pdf(self, file_path: str) -> str:
         text = ""
-        if os.environ.get("MISTRAL_API_KEY") is not None:
+        if config.USE_MISTRAL_OCR and os.environ.get("MISTRAL_API_KEY"):
             logger.info("Using Mistral OCR to parse PDF")
             client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
 

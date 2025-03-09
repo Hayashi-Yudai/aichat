@@ -88,8 +88,8 @@ class _ChatMessageList(ft.ListView):
         self.update()
 
         agent_response = self.controller.get_agent_response(self.controls)
+        self.controls.pop()
         if agent_response:
-            self.controls.pop()
             self.controls.append(agent_response)
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
