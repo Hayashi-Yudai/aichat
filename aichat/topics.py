@@ -2,6 +2,7 @@ from enum import Enum, auto
 
 
 class Topics(Enum):
+    START_SUBMISSION = auto()
     SUBMIT_MESSAGE = auto()
     UPDATE_CHAT = auto()
     CHANGE_AGENT = auto()

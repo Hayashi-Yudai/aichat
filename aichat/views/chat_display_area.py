@@ -63,12 +63,14 @@ class _ChatMessageList(ft.ListView):
 
         self.expand = True
         self.spacing = 10
-        self.controls = [InprogressMessage("Requesting to agent...")]
+        self.controls = []
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(
             item_builder=self._item_builder, agent=agent
         )
+
+        self.pubsub.subscribe_topic(Topics.START_SUBMISSION, self.in_progress_state)
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
@@ -78,7 +80,11 @@ class _ChatMessageList(ft.ListView):
 
     def append_new_message_to_list(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        if len(self.controls) > 0 and isinstance(self.controls[-1], InprogressMessage):
+            self.controls.pop()
+
         self.controls.append(self._item_builder(message))
+        self.controls.append(InprogressMessage("Agent is typing..."))
         self.update()
 
         agent_response = self.controller.get_agent_response(self.controls)
@@ -87,6 +93,7 @@ class _ChatMessageList(ft.ListView):
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
+        self.controls.pop(-2)
 
         self.update()
 
@@ -105,6 +112,11 @@ class _ChatMessageList(ft.ListView):
     def start_new_chat(self, topic: Topics, msg: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controls = []
+        self.update()
+
+    def in_progress_state(self, topic: Topics, message: str):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controls.append(InprogressMessage(message))
         self.update()
 
 

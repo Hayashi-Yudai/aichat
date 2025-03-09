@@ -40,6 +40,7 @@ class FileLoaderController:
         self.pubsub = pubsub
 
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
+        self.pubsub.send_all_on_topic(Topics.START_SUBMISSION, "Processing file...")
         file_path = Path(file.path)
         match file_path.suffix.lstrip(".").lower():
             case "png":
