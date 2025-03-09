@@ -13,6 +13,7 @@ class _ChatMessage(ft.Row):
         super().__init__()
 
         self._message = message
+        self.exclude_from_agent_request = False
 
         self.vertical_alignment = ft.CrossAxisAlignment.START
         self.controls = [
@@ -42,6 +43,18 @@ class _ChatMessage(ft.Row):
         return self._message
 
 
+class InprogressMessage(ft.Row):
+    def __init__(self, message: str):
+        super().__init__()
+
+        self.exclude_from_agent_request = True
+
+        self.controls = [
+            ft.ProgressRing(height=18, width=18, color=ft.Colors.BLUE),
+            ft.Text(message, color=ft.Colors.GREY),
+        ]
+
+
 class _ChatMessageList(ft.ListView):
     def __init__(self, page: ft.Page, agent: Agent):
         super().__init__()
@@ -50,7 +63,7 @@ class _ChatMessageList(ft.ListView):
 
         self.expand = True
         self.spacing = 10
-        self.controls = []
+        self.controls = [InprogressMessage("Requesting to agent...")]
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(

@@ -13,9 +13,9 @@ class ChatDisplayController:
         self.agent = agent
 
     def get_agent_response(self, controls: list[ft.Row]) -> ft.Row:
-        messages = []
-        for ctl in controls:
-            messages.append(ctl.message)
+        messages = [
+            ctl.message for ctl in controls if not ctl.exclude_from_agent_request
+        ]
 
         if messages[-1].role.name == "App":
             logger.info("Message from app. Skipping requesting to agent.")
