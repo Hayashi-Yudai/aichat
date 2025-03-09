@@ -2,7 +2,7 @@ import flet as ft
 from loguru import logger
 
 from agents.agent import Agent
-from models.message import Message
+from models.message import Message, ContentType
 
 from controllers.chat_display_controller import ChatDisplayController
 from topics import Topics
@@ -16,6 +16,17 @@ class _ChatMessage(ft.Row):
         self.exclude_from_agent_request = False
 
         self.vertical_alignment = ft.CrossAxisAlignment.START
+
+        if message.content_type == ContentType.TEXT:
+            content = ft.Markdown(
+                message.display_content,
+                extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+            )
+        elif (
+            message.content_type == ContentType.PNG
+            or message.content_type == ContentType.JPEG
+        ):
+            content = ft.Image(src_base64=message.system_content, width=500)
         self.controls = [
             ft.CircleAvatar(
                 content=ft.Text(message.role.name[0]),
@@ -25,12 +36,7 @@ class _ChatMessage(ft.Row):
             ft.Column(
                 [
                     ft.Text(message.role.name),
-                    ft.SelectionArea(
-                        ft.Markdown(
-                            message.display_content,
-                            extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                        )
-                    ),
+                    ft.SelectionArea(content),
                 ],
                 tight=True,
                 spacing=5,
