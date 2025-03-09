@@ -101,6 +101,7 @@ class FileLoaderController:
                 },
                 include_image_base64=True,
             )
+            logger.info("OCR response received!")
             for idx, p in enumerate(ocr_response.pages):
                 if idx == 0:
                     logger.debug(p.markdown)

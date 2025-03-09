@@ -13,8 +13,8 @@ from models.message import Message, ContentType
 class OpenAIModel(StrEnum):
     GPT4O = "gpt-4o"
     GPT4OMINI = "gpt-4o-mini"
-    O1MINI = "o1-mini"
-    O1PREVIEW = "o1-preview"
+    # O1MINI = "o1-mini"
+    # O1PREVIEW = "o1-preview"
     O1 = "o1"
     O3MINI = "o3-mini"
 
