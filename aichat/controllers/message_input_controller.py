@@ -51,8 +51,7 @@ class FileLoaderController:
                     content = base64.b64encode(f.read()).decode("utf-8")
                 content_type = ContentType.JPEG
             case "pdf":
-                content = self.parse_pdf(file.path)
-                content_type = ContentType.TEXT
+                content, content_type = self.parse_pdf(file.path)
             case _:
                 try:
                     with open(file.path, "r") as f:
@@ -101,12 +100,19 @@ class FileLoaderController:
                 },
                 include_image_base64=True,
             )
-            for p in ocr_response.pages:
+            for idx, p in enumerate(ocr_response.pages):
+                if idx == 0:
+                    logger.debug(p.markdown)
                 text += p.markdown + " "
+
+            # text = ocr_response.pages[6].images[0].image_base64
+            content_type = ContentType.TEXT
         else:
             logger.info("Using pdfplumber to parse PDF")
             with pdfplumber.open(file_path) as pdf:
                 for page in pdf.pages:
                     text += page.extract_text()
 
-        return text
+            content_type = ContentType.TEXT
+
+        return text, content_type
