@@ -5,7 +5,6 @@ from controllers.message_input_controller import (
     MessageInputController,
     FileLoaderController,
 )
-from topics import Topics
 
 
 class _MessageInputArea(ft.TextField):
@@ -33,10 +32,6 @@ class _MessageInputArea(ft.TextField):
 
         self.focus()
         self.update()
-
-    def change_chat_id(self, topic: Topics, chat_id: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.chat_id = chat_id
 
 
 class _FileLoader(ft.FilePicker):
