@@ -31,7 +31,7 @@ class MessageInputController:
         msg.insert_into_db()
 
         topic = Topics.SUBMIT_MESSAGE
-        self.pubsub.send_all_on_topic(topic, msg)
+        self.pubsub.send_all_on_topic(topic, [msg])
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
 
@@ -72,7 +72,7 @@ class FileLoaderController:
         msg.insert_into_db()
 
         topic = Topics.SUBMIT_MESSAGE
-        self.pubsub.send_all_on_topic(topic, msg)
+        self.pubsub.send_all_on_topic(topic, [msg])
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
     def parse_pdf(self, file_path: str) -> str:

@@ -78,12 +78,12 @@ class _ChatMessageList(ft.ListView):
         self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
         self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.start_new_chat)
 
-    def append_new_message_to_list(self, topic: Topics, message: str):
+    def append_new_message_to_list(self, topic: Topics, messages: list[str]):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         if len(self.controls) > 0 and isinstance(self.controls[-1], InprogressMessage):
             self.controls.pop()
 
-        self.controls.append(self._item_builder(message))
+        self.controls.extend([self._item_builder(m) for m in messages])
         self.controls.append(InprogressMessage("Agent is typing..."))
         self.update()
 
