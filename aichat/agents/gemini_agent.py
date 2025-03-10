@@ -14,7 +14,7 @@ class GeminiModel(StrEnum):
     GEMINI15PRO = "gemini-1.5-pro"
     GEMINI2FLASH = "gemini-2.0-flash"
     GEMINI2FLASHLITE = "gemini-2.0-flash-lite"
-    # GEMINI2THINKING = "gemini-2.0-flash-thinking"
+    GEMINI2PRO = "gemini-2.0-pro-exp-02-05"
 
 
 class GeminiAgent:
