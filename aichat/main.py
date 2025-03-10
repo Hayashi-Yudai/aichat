@@ -13,6 +13,10 @@ def main(page: ft.Page):
     page.window.width = 1000
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
+    page.theme = ft.Theme(
+        color_scheme_seed=ft.Colors.GREY_50,
+    )
+    page.theme_mode = ft.ThemeMode.DARK
 
     logger.debug("Initialize agent...")
     agent = OpenAIAgent(OpenAIModel.GPT4OMINI)

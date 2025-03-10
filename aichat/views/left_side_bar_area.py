@@ -51,6 +51,7 @@ class PastChatItem(ft.Container):
     def __init__(self, page: ft.Page, chat_id: int, text: str):
         super().__init__()
 
+        self.page = page
         self.pubsub = page.pubsub
         self.session = page.session
         self.chat_id = chat_id
@@ -69,7 +70,10 @@ class PastChatItem(ft.Container):
         self.pubsub.send_all_on_topic(Topics.PAST_CHAT_RESTORED, self.chat_id)
 
     def on_hover_func(self, e: ft.HoverEvent):
-        self.bgcolor = ft.Colors.GREY_900 if e.data == "true" else None
+        if self.page.theme_mode == ft.ThemeMode.LIGHT:
+            self.bgcolor = ft.Colors.GREEN_50 if e.data == "true" else None
+        else:
+            self.bgcolor = ft.Colors.GREY_900 if e.data == "true" else None
         self.update()
 
 

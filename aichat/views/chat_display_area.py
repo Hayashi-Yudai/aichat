@@ -21,6 +21,9 @@ class _ChatMessage(ft.Row):
             content = ft.Markdown(
                 message.display_content,
                 extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+                md_style_sheet=ft.MarkdownStyleSheet(
+                    blockquote_decoration=ft.BoxDecoration(bgcolor=ft.Colors.GREY)
+                ),
             )
         elif (
             message.content_type == ContentType.PNG
