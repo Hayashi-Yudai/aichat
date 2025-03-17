@@ -18,12 +18,20 @@ class ClaudeModel(StrEnum):
 class ClaudeAgent:
     def __init__(self, model: ClaudeModel):
         self.model = model
-        self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
+        self.role = Role(
+            f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
+        )
 
         self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {"role": "assistant" if message.role.name == "Assistant" else "user"}
+        request = {
+            "role": (
+                "assistant"
+                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
+                else "user"
+            )
+        }
 
         if message.content_type == ContentType.TEXT:
             request["content"] = [{"type": "text", "text": message.system_content}]

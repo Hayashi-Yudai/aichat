@@ -19,13 +19,20 @@ class GeminiModel(StrEnum):
 
 class GeminiAgent:
     def __init__(self, model: GeminiModel):
-        self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
+        self.model = model
+        self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
 
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        self.model = genai.GenerativeModel(model_name=model)
+        self.client = genai.GenerativeModel(model_name=model)
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {"role": "model" if message.role.name == "Assistant" else "user"}
+        request = {
+            "role": (
+                "model"
+                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
+                else "user"
+            )
+        }
 
         if message.content_type == ContentType.TEXT:
             request["parts"] = [{"text": message.system_content}]
@@ -52,6 +59,6 @@ class GeminiAgent:
         chat_id = messages[0].chat_id
 
         request_body = [self._construct_request(m) for m in messages]
-        content = self.model.generate_content(request_body).text
+        content = self.client.generate_content(request_body).text
 
         return Message.construct_auto(chat_id, content, self.role)

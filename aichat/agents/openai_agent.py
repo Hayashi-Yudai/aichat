@@ -22,12 +22,20 @@ class OpenAIModel(StrEnum):
 class OpenAIAgent:
     def __init__(self, model: OpenAIModel):
         self.model = model
-        self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
+        self.role = Role(
+            f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
+        )
 
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {"role": "assistant" if message.role.name == "Assistant" else "user"}
+        request = {
+            "role": (
+                "assistant"
+                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
+                else "user"
+            )
+        }
 
         if message.content_type == ContentType.TEXT:
             request["content"] = message.system_content

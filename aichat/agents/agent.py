@@ -23,8 +23,10 @@ class DummyAgent:
     """
 
     def __init__(self, model: str):
-        self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
         self.model = DummyModel.DUMMY
+        self.role = Role(
+            f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
+        )
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         pass
