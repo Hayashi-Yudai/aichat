@@ -17,6 +17,8 @@ class OpenAIModel(StrEnum):
     # O1PREVIEW = "o1-preview"
     O1 = "o1"
     O3MINI = "o3-mini"
+    GPT45PREVIEW = "gpt-4.5-preview"
+    O1PRO = "o1-pro"
 
 
 class OpenAIAgent:
