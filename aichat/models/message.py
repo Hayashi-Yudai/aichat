@@ -59,7 +59,7 @@ class Message:
     def from_tuple(cls, t: tuple):
         if t[6] == config.USER_NAME:
             color = config.USER_AVATAR_COLOR
-        elif t[6] == config.AGENT_NAME:
+        elif config.AGENT_NAME in t[6]:
             color = config.AGENT_AVATAR_COLOR
         else:
             color = config.APP_AVATAR_COLOR
