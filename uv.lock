@@ -29,7 +29,7 @@ requires-dist = [
     { name = "google-generativeai", specifier = ">=0.8.4" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "mistralai", specifier = ">=1.5.1" },
-    { name = "openai", specifier = ">=1.62.0" },
+    { name = "openai", specifier = ">=1.66.0" },
     { name = "pdfplumber", specifier = ">=0.11.5" },
     { name = "pydantic", specifier = ">=2.10.6" },
 ]
@@ -776,7 +776,7 @@ wheels = [
 
 [[package]]
 name = "openai"
-version = "1.62.0"
+version = "1.68.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -788,9 +788,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/57/82/163797f1ebfc7effd23e942fd4e52e023e8f9e0d6895e838c62c7737311d/openai-1.62.0.tar.gz", hash = "sha256:ef3f6864ae2f75fa6296bc9811acf684b95557fcb611fe95734215a8b9150b43", size = 352798 }
+sdist = { url = "https://files.pythonhosted.org/packages/3f/6b/6b002d5d38794645437ae3ddb42083059d556558493408d39a0fcea608bc/openai-1.68.2.tar.gz", hash = "sha256:b720f0a95a1dbe1429c0d9bb62096a0d98057bcda82516f6e8af10284bdd5b19", size = 413429 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/30/0f/c8f8d3b0c313d9ee0539941eb38fd549ba3b776f0daf19a3fb6e4aeac247/openai-1.62.0-py3-none-any.whl", hash = "sha256:dcb7f9fb4fbc3f27e3ffd2d7bf045be9211510d7fafefcef7ad2302cb27484e0", size = 464814 },
+    { url = "https://files.pythonhosted.org/packages/fd/34/cebce15f64eb4a3d609a83ac3568d43005cc9a1cba9d7fde5590fd415423/openai-1.68.2-py3-none-any.whl", hash = "sha256:24484cb5c9a33b58576fdc5acf0e5f92603024a4e39d0b99793dfa1eb14c2b36", size = 606073 },
 ]
 
 [[package]]
