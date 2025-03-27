@@ -11,10 +11,11 @@ from models.message import Message, ContentType
 
 
 class GeminiModel(StrEnum):
-    GEMINI15PRO = "gemini-1.5-pro"
+    # GEMINI15PRO = "gemini-1.5-pro"
     GEMINI2FLASH = "gemini-2.0-flash"
     GEMINI2FLASHLITE = "gemini-2.0-flash-lite"
     GEMINI2PRO = "gemini-2.0-pro-exp-02-05"
+    GEMINI25PRO = "gemini-2.5-pro-exp-03-25"
 
 
 class GeminiAgent:
