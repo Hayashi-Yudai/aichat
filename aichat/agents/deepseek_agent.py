@@ -22,7 +22,7 @@ class DeepSeekAgent:
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
 
-        self.streamable = False
+        self.streamable = True
 
         # Use openai library
         self.client = OpenAI(
@@ -57,10 +57,20 @@ class DeepSeekAgent:
         )
         content = chat_completion.choices[0].message.content
         if content is None:
-            logger.error("OpenAI returned None")
+            logger.error("DeepSeek returned None")
             return ""
 
         return [content]
 
     def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
-        logger.error("Streaming is not supported for DeepSeek.")
+        logger.info("Sending message to DeepSeek...")
+
+        request_body = [self._construct_request(m) for m in messages]
+        chat_completion = self.client.chat.completions.create(
+            messages=request_body,
+            model=self.model,
+            stream=True,
+        )
+        for chunk in chat_completion:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
