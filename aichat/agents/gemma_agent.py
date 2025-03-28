@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any
+from typing import Any, Generator
 
 from loguru import logger
 import torch
@@ -20,6 +20,7 @@ class GemmaAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
+        self.streamable = False
 
         self.client = pipeline(
             "text-generation",
@@ -50,10 +51,8 @@ class GemmaAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         logger.info("Generating message with Gemma...")
-
-        chat_id = messages[0].chat_id
 
         request_body = [self._construct_request(m) for m in messages]
         output = self.client(text_inputs=request_body, max_new_tokens=5000)
@@ -62,4 +61,7 @@ class GemmaAgent:
             logger.error("Gemma returned None")
             return ""
 
-        return Message.construct_auto(chat_id, content, self.role)
+        return [content]
+
+    def request_streaming(self, message: list[Message]) -> Generator[str, None, None]:
+        logger.error("Streaming is not supported for Gemma.")

@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any
+from typing import Any, Generator
 
 import google.generativeai as genai
 from loguru import logger
@@ -22,6 +22,8 @@ class GeminiAgent:
     def __init__(self, model: GeminiModel):
         self.model = model
         self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
+
+        self.streamable = False
 
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         self.client = genai.GenerativeModel(model_name=model)
@@ -54,12 +56,13 @@ class GeminiAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         logger.info("Sending message to Google Gemini...")
-
-        chat_id = messages[0].chat_id
 
         request_body = [self._construct_request(m) for m in messages]
         content = self.client.generate_content(request_body).text
 
-        return Message.construct_auto(chat_id, content, self.role)
+        return [content]
+
+    def request_streaming(self, message: list[Message]) -> Generator[str, None, None]:
+        logger.error("Streaming is not supported for Gemini.")

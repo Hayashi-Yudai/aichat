@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Protocol
+from typing import Any, Protocol, Generator
 
 
 import config
@@ -10,7 +10,11 @@ from models.role import Role
 class Agent(Protocol):
     def _construct_request(self, message: Message) -> dict[str, Any]: ...
 
-    def request(self, messages: list[Message]) -> Message: ...
+    def request(self, messages: list[Message]) -> str: ...
+
+    def request_streaming(
+        self, messages: list[Message]
+    ) -> Generator[str, None, None]: ...
 
 
 class DummyModel(StrEnum):
@@ -27,11 +31,10 @@ class DummyAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
+        self.streamable = False
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         pass
 
-    def request(self, messages: list[Message]) -> Message:
-        chat_id = messages[0].chat_id
-
-        return Message.construct_auto(chat_id, messages[-1].display_content, self.role)
+    def request(self, messages: list[Message]) -> list[str]:
+        return messages[-1].display_content

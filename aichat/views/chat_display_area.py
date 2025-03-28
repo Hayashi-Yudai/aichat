@@ -75,9 +75,7 @@ class _ChatMessageList(ft.ListView):
         self.controls = []
 
         self._item_builder = _ChatMessage
-        self.controller = ChatDisplayController(
-            item_builder=self._item_builder, agent=agent
-        )
+        self.controller = ChatDisplayController(agent=agent)
 
         self.pubsub.subscribe_topic(Topics.START_SUBMISSION, self.in_progress_state)
         self.pubsub.subscribe_topic(
@@ -96,15 +94,21 @@ class _ChatMessageList(ft.ListView):
         self.controls.append(InprogressMessage("Agent is typing..."))
         self.update()
 
-        agent_response = self.controller.get_agent_response(self.controls)
-        self.controls.pop()
-        if agent_response:
-            self.controls.append(agent_response)
+        for i, agent_response in enumerate(
+            self.controller.get_agent_response(self.controls)
+        ):
+            if i == 0:
+                self.controls.pop()
+                self.controls.append(self._item_builder(agent_response))
+            else:
+                self.controls[-1] = self._item_builder(agent_response)
+
+            self.update()
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
-        self.update()
+        # self.update()
 
     def change_agent(self, topic: Topics, model: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")

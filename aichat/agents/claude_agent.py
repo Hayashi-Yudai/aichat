@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any
+from typing import Any, Generator
 
 from loguru import logger
 import anthropic
@@ -21,6 +21,7 @@ class ClaudeAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
+        self.streamable = False
 
         self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -59,10 +60,8 @@ class ClaudeAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         logger.info("Sending message to Claude...")
-
-        chat_id = messages[0].chat_id
 
         request_body = [self._construct_request(m) for m in messages]
         chat_completion = self.client.messages.create(
@@ -75,4 +74,7 @@ class ClaudeAgent:
             logger.error("Claude returned None")
             return ""
 
-        return Message.construct_auto(chat_id, content, self.role)
+        return [content]
+
+    def request_streaming(self, message: list[Message]) -> Generator[str, None, None]:
+        logger.error("Streaming is not supported for Claude.")
