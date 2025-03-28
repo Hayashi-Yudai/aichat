@@ -94,12 +94,23 @@ all_models = (
     + [m for m in DummyModel]
     + [m for m in YOURModel]  # Append your model
 )
-model_agent_map: dict[StrEnum, Agent] = (
-    {m: OpenAIAgent(m) for m in OpenAIModel}
-    | {m: GeminiAgent(m) for m in GeminiModel}
-    | {m: ClaudeAgent(m) for m in ClaudeModel}
-    | {m: DeepSeekAgent(m) for m in DeepSeekModel}
-    | {m: DummyAgent(m) for m in DummyModel}
-    | {m: YourAgent(m) for m in YourModel}  # Append your model and agent
-)
+
+def get_agent_by_model(model: StrEnum) -> Agent:
+    if model in OpenAIModel:
+        return OpenAIAgent(model)
+    elif model in GeminiModel:
+        return GeminiAgent(model)
+    elif model in ClaudeModel:
+        return ClaudeAgent(model)
+    elif model in DeepSeekModel:
+        return DeepSeekAgent(model)
+    elif model in GemmaModel:
+        return GemmaAgent(model)
+    elif model in YOURModel:
+        return YourAgent(model)  # Append your model and agent
+    elif model in DummyModel:
+        return DummyAgent(model)
+    else:
+        raise ValueError(f"Invalid model: {model}")
+
 ```
