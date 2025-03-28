@@ -3,7 +3,7 @@ from typing import Type
 import flet as ft
 from loguru import logger
 
-from agents import Agent, model_agent_map
+from agents import Agent, get_agent_by_model
 from models.message import Message
 
 
@@ -27,7 +27,7 @@ class ChatDisplayController:
         return self.item_builder(response)
 
     def change_agent(self, model: str):
-        self.agent = model_agent_map[model]
+        self.agent = get_agent_by_model(model)
 
         logger.debug(f"Agent model changed to: {self.agent.model}")
 

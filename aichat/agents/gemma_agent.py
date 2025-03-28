@@ -1,0 +1,65 @@
+from enum import StrEnum
+from typing import Any
+
+from loguru import logger
+import torch
+from transformers import pipeline
+
+import config
+from models.role import Role
+from models.message import Message, ContentType
+
+
+class GemmaModel(StrEnum):
+    gemma3_4b = "google/gemma-3-4b-it"
+
+
+class GemmaAgent:
+    def __init__(self, model: GemmaModel):
+        self.model = model
+        self.role = Role(
+            f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
+        )
+
+        self.client = pipeline(
+            "text-generation",
+            model=model,  # "google/gemma-3-12b-it", "google/gemma-3-27b-it"
+            device="cpu",
+            torch_dtype=torch.bfloat16,
+        )
+
+    def _construct_request(self, message: Message) -> dict[str, Any]:
+        request = {
+            "role": (
+                "assistant"
+                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
+                else "user"
+            )
+        }
+
+        if message.content_type == ContentType.TEXT:
+            request["content"] = message.system_content
+        elif (
+            message.content_type == ContentType.PNG
+            or message.content_type == ContentType.JPEG
+        ):
+            logger.error("Image content type is not supported for now")
+        else:
+            logger.error(f"Invalid content type: {message.content_type}")
+            raise ValueError(f"Invalid content type: {message.content_type}")
+
+        return request
+
+    def request(self, messages: list[Message]) -> Message:
+        logger.info("Generating message with Gemma...")
+
+        chat_id = messages[0].chat_id
+
+        request_body = [self._construct_request(m) for m in messages]
+        output = self.client(text_inputs=request_body, max_new_tokens=5000)
+        content = output[0]["generated_text"][-1]["content"]
+        if content is None:
+            logger.error("Gemma returned None")
+            return ""
+
+        return Message.construct_auto(chat_id, content, self.role)
