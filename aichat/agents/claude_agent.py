@@ -21,7 +21,7 @@ class ClaudeAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = False
+        self.streamable = True
 
         self.client = anthropic.Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 
@@ -76,5 +76,14 @@ class ClaudeAgent:
 
         return [content]
 
-    def request_streaming(self, message: list[Message]) -> Generator[str, None, None]:
-        logger.error("Streaming is not supported for Claude.")
+    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+        request_body = [self._construct_request(m) for m in messages]
+
+        with self.client.messages.stream(
+            messages=request_body,
+            model=self.model,
+            max_tokens=2048,
+        ) as stream:
+            for chunk in stream:
+                if hasattr(chunk, "content") and chunk.content:
+                    yield chunk.content
