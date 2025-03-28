@@ -23,7 +23,7 @@ class GeminiAgent:
         self.model = model
         self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
 
-        self.streamable = False
+        self.streamable = True
 
         genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
         self.client = genai.GenerativeModel(model_name=model)
@@ -64,5 +64,12 @@ class GeminiAgent:
 
         return [content]
 
-    def request_streaming(self, message: list[Message]) -> Generator[str, None, None]:
-        logger.error("Streaming is not supported for Gemini.")
+    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+        logger.info("Sending message to Google Gemini with streaming...")
+
+        request_body = [self._construct_request(m) for m in messages]
+        response = self.client.generate_content(request_body, stream=True)
+
+        for chunk in response:
+            if hasattr(chunk, "text") and chunk.text:
+                yield chunk.text
