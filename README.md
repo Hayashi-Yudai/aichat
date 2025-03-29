@@ -49,38 +49,25 @@ class YOURModel(str, Enum):  # Inherit from str and Enum directly
 class YOURAGENT:
     def __init__(self, model: YOURModel):
         self.model = model
-        # Assuming config.AGENT_NAME and config.AGENT_AVATAR_COLOR are defined elsewhere.
-        #  Also assuming Role is a defined class.
         self.role = Role(config.AGENT_NAME, config.AGENT_AVATAR_COLOR)
-
-        # Initialize your API client here.  Provide a specific example.
         self.client = ...  # e.g., self.client = OpenAI(api_key="YOUR_API_KEY")
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         """Construct the request in the format required by your model.
-
-        For example:
-
-        ```
-        {
-            "role": "user",
-            "content": "hoge"
-        }
-        ```
+        e.g. {"role": "user", "content": "hoge"}
         """
-        ... # Implementation needed here
+        ...
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         """Sends a request to the agent and returns the response."""
+        request_payload = [self._construct_request(m) for m in messages]
+        response = ...
+        return [response]
+    
+    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+        # if self.streamable is true, implement this method
+        ...
 
-        chat_id = messages[0].chat_id
-        #Construct the request based on ALL the messages, not just one.
-        request_payload = [self._construct_request(m) for m in messages] # You probably need to adjust _construct_request
-
-        response = ...  # Get response from agent (using self.client and request_payload)
-
-        #  Assuming you meant a static method, and added the decorator
-        return Message.construct_auto(chat_id, content, self.role)
 ```
 
 Next, register the YOURModel and YOURAGENT classes with the system.  Modify the agents/__init__.py file as shown below:
