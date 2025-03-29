@@ -11,12 +11,13 @@ from models.role import Role
 from models.message import Message, ContentType
 
 
-class GemmaModel(StrEnum):
+class LocalModel(StrEnum):
     gemma3_4b = "google/gemma-3-4b-it"
+    phi4_mini = "microsoft/Phi-4-mini-instruct"
 
 
-class GemmaAgent:
-    def __init__(self, model: GemmaModel):
+class LocalAgent:
+    def __init__(self, model: LocalModel):
         self.model = model
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
