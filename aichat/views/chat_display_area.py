@@ -72,6 +72,7 @@ class _ChatMessageList(ft.ListView):
 
         self.expand = True
         self.spacing = 10
+        self.auto_scroll = True
         self.controls = []
 
         self._item_builder = _ChatMessage
