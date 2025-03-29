@@ -1,8 +1,8 @@
 from enum import StrEnum
 import os
-from typing import Any
+from typing import Any, Generator
 
-import google.generativeai as genai
+from google import genai
 from loguru import logger
 
 import config
@@ -23,8 +23,9 @@ class GeminiAgent:
         self.model = model
         self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
 
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        self.client = genai.GenerativeModel(model_name=model)
+        self.streamable = True
+
+        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         request = {
@@ -54,12 +55,24 @@ class GeminiAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         logger.info("Sending message to Google Gemini...")
 
-        chat_id = messages[0].chat_id
+        request_body = [self._construct_request(m) for m in messages]
+        content = self.client.models.generate_content(
+            model=self.model, contents=request_body
+        ).text
+
+        return [content]
+
+    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+        logger.info("Sending message to Google Gemini with streaming...")
 
         request_body = [self._construct_request(m) for m in messages]
-        content = self.client.generate_content(request_body).text
+        response = self.client.models.generate_content_stream(
+            model=self.model, contents=request_body
+        )
 
-        return Message.construct_auto(chat_id, content, self.role)
+        for chunk in response:
+            if hasattr(chunk, "text") and chunk.text:
+                yield chunk.text

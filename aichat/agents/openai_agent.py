@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any
+from typing import Any, Generator
 
 from loguru import logger
 from openai import OpenAI
@@ -27,6 +27,7 @@ class OpenAIAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
+        self.streamable = True
 
         self.client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
@@ -60,10 +61,8 @@ class OpenAIAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> Message:
+    def request(self, messages: list[Message]) -> list[str]:
         logger.info("Sending message to OpenAI...")
-
-        chat_id = messages[0].chat_id
 
         request_body = [self._construct_request(m) for m in messages]
         chat_completion = self.client.chat.completions.create(
@@ -75,4 +74,17 @@ class OpenAIAgent:
             logger.error("OpenAI returned None")
             return ""
 
-        return Message.construct_auto(chat_id, content, self.role)
+        return [content]
+
+    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+        logger.info("Sending message to OpenAI...")
+
+        request_body = [self._construct_request(m) for m in messages]
+        chat_completion = self.client.chat.completions.create(
+            messages=request_body,
+            model=self.model,
+            stream=True,
+        )
+        for chunk in chat_completion:
+            if chunk.choices[0].delta.content:
+                yield chunk.choices[0].delta.content
