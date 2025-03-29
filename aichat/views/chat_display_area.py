@@ -72,7 +72,7 @@ class _ChatMessageList(ft.ListView):
 
         self.expand = True
         self.spacing = 10
-        self.auto_scroll = True
+        self.auto_scroll = False
         self.controls = []
 
         self._item_builder = _ChatMessage
@@ -104,7 +104,11 @@ class _ChatMessageList(ft.ListView):
             else:
                 self.controls[-1] = self._item_builder(agent_response)
 
+            self.auto_scroll = True
             self.update()
+
+        self.auto_scroll = False
+        self.update()
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
