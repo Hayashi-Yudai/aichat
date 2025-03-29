@@ -4,7 +4,7 @@ from .openai_agent import OpenAIAgent, OpenAIModel
 from .gemini_agent import GeminiAgent, GeminiModel
 from .deepseek_agent import DeepSeekAgent, DeepSeekModel
 from .claude_agent import ClaudeAgent, ClaudeModel
-from .gemma_agent import LocalAgent, LocalModel
+from .local_agent import LocalAgent, LocalModel
 from .agent import Agent, DummyAgent, DummyModel
 
 
