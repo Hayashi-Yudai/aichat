@@ -2,7 +2,7 @@ from enum import StrEnum
 import os
 from typing import Any, Generator
 
-import google.generativeai as genai
+from google import genai
 from loguru import logger
 
 import config
@@ -25,8 +25,7 @@ class GeminiAgent:
 
         self.streamable = True
 
-        genai.configure(api_key=os.environ.get("GEMINI_API_KEY"))
-        self.client = genai.GenerativeModel(model_name=model)
+        self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         request = {
@@ -60,7 +59,9 @@ class GeminiAgent:
         logger.info("Sending message to Google Gemini...")
 
         request_body = [self._construct_request(m) for m in messages]
-        content = self.client.generate_content(request_body).text
+        content = self.client.models.generate_content(
+            model=self.model, contents=request_body
+        ).text
 
         return [content]
 
@@ -68,7 +69,9 @@ class GeminiAgent:
         logger.info("Sending message to Google Gemini with streaming...")
 
         request_body = [self._construct_request(m) for m in messages]
-        response = self.client.generate_content(request_body, stream=True)
+        response = self.client.models.generate_content_stream(
+            model=self.model, contents=request_body
+        )
 
         for chunk in response:
             if hasattr(chunk, "text") and chunk.text:
