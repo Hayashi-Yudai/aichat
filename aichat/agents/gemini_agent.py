@@ -43,8 +43,10 @@ class GeminiAgent:
             request["parts"] = [
                 {"text": message.display_content},
                 {
-                    "mime_type": f"image/{message.content_type}",
-                    "data": message.system_content,
+                    "inline_data": {
+                        "mime_type": f"image/{message.content_type}",
+                        "data": message.system_content,
+                    }
                 },
             ]
         else:
