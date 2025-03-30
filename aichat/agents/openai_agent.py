@@ -11,14 +11,11 @@ from models.message import Message, ContentType
 
 
 class OpenAIModel(StrEnum):
-    GPT4O = "gpt-4o"
     GPT4OMINI = "gpt-4o-mini"
-    # O1MINI = "o1-mini"
-    # O1PREVIEW = "o1-preview"
+    GPT4O = "gpt-4o"
     O1 = "o1"
     O3MINI = "o3-mini"
     GPT45PREVIEW = "gpt-4.5-preview"
-    O1PRO = "o1-pro"
 
 
 class OpenAIAgent:

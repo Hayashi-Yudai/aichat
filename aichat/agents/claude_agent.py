@@ -11,8 +11,8 @@ from models.message import Message, ContentType
 
 
 class ClaudeModel(StrEnum):
-    CLAUDE37SONNET = "claude-3-7-sonnet-latest"
     CALUDE35HAIKU = "claude-3-5-haiku-latest"
+    CLAUDE37SONNET = "claude-3-7-sonnet-latest"
 
 
 class ClaudeAgent:
