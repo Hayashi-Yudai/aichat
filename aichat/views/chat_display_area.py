@@ -92,6 +92,10 @@ class _ChatMessageList(ft.ListView):
             self.controls.pop()
 
         self.controls.extend([self._item_builder(m) for m in messages])
+        if self.controls[-1].message.role.name == "App":
+            self.update()
+            return
+
         self.controls.append(InprogressMessage("Agent is typing..."))
         self.update()
 
