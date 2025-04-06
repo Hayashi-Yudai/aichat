@@ -1,3 +1,4 @@
+import itertools
 from enum import StrEnum
 
 from .openai_agent import OpenAIAgent, OpenAIModel
@@ -9,14 +10,18 @@ from .mlx_model_agent import MLXAgent, MLXModel
 from .agent import Agent, DummyAgent, DummyModel
 
 
-all_models = (
-    [m for m in OpenAIModel]
-    + [m for m in GeminiModel]
-    + [m for m in ClaudeModel]
-    + [m for m in DeepSeekModel]
-    + [m for m in LocalModel]
-    + [m for m in MLXModel]
-    + [m for m in DummyModel]
+all_models = list(
+    itertools.chain.from_iterable(
+        [
+            OpenAIModel,
+            GeminiModel,
+            ClaudeModel,
+            DeepSeekModel,
+            LocalModel,
+            MLXModel,
+            DummyModel,
+        ]
+    )
 )
 
 
