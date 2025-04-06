@@ -16,4 +16,6 @@ dependencies = [
     "torch>=2.6.0",
     "transformers>=4.50.2",
     "google-genai>=1.8.0",
+    "mlx>=0.24.2",
+    "mlx-lm>=0.22.3",
 ]
