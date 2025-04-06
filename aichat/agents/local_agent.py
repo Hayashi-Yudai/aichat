@@ -12,8 +12,8 @@ from models.message import Message, ContentType
 
 
 class LocalModel(StrEnum):
-    gemma3_4b = "google/gemma-3-4b-it"
-    phi4_mini = "microsoft/Phi-4-mini-instruct"
+    GEMMA3_4B = "google/gemma-3-4b-it"
+    PHI4MINI = "microsoft/Phi-4-mini-instruct"
 
 
 class LocalAgent:
