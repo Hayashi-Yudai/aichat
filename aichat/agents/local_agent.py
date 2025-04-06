@@ -12,7 +12,6 @@ from models.message import Message, ContentType
 
 
 class LocalModel(StrEnum):
-    GEMMA3_4B = "google/gemma-3-4b-it"
     PHI4MINI = "microsoft/Phi-4-mini-instruct"
 
 
