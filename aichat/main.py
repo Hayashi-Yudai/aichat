@@ -10,7 +10,7 @@ from views.left_side_bar_area import LeftSideBarArea
 
 
 def main(page: ft.Page):
-    page.window.width = 1000
+    page.window.width = 1200
     page.horizontal_alignment = ft.CrossAxisAlignment.STRETCH
     page.title = "AI Chat"
     page.theme = ft.Theme(
@@ -37,7 +37,7 @@ def main(page: ft.Page):
     page.add(
         ft.Row(
             [
-                left_side_bar_area,
+                ft.Container(left_side_bar_area, bgcolor=ft.Colors.GREY_900),
                 ft.Column(
                     [chat_messages_display_container, user_message_area], expand=True
                 ),

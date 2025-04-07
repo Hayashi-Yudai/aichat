@@ -14,12 +14,13 @@ class _MessageInputArea(ft.TextField):
         self.pubsub = page.pubsub
         self.session = page.session
 
+        self.border = ft.InputBorder.NONE
+        self.focused_border_color = ft.Colors.TRANSPARENT
         self.hint_text = "Write a message..."
         self.autofocus = True
         self.shift_enter = False
         self.min_lines = 1
         self.max_lines = 5
-        self.filled = True
         self.expand = True
         self.value = ""
 
@@ -69,6 +70,7 @@ class UserMessageArea(ft.Row):
             icon=ft.Icons.ADD,
             tooltip="Upload file",
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
+            style=ft.ButtonStyle(color=ft.Colors.WHITE),
         )
         self.message_input_area = _MessageInputArea(page=page)
         self.send_message_icon = ft.IconButton(
@@ -77,10 +79,29 @@ class UserMessageArea(ft.Row):
             on_click=lambda _: self.message_input_area.controller.send_message(
                 page.session.get("chat_id"), self.message_input_area.value
             ),
+            style=ft.ButtonStyle(color=ft.Colors.WHITE),
         )
 
-        self.controls = [
-            self.file_loader_icon,
-            self.message_input_area,
-            self.send_message_icon,
-        ]
+        column = ft.Column(
+            [
+                ft.Container(self.message_input_area, margin=ft.margin.only(left=8)),
+                ft.Container(
+                    ft.Row(
+                        [
+                            self.file_loader_icon,
+                            ft.Container(expand=True),
+                            self.send_message_icon,
+                        ]
+                    )
+                ),
+            ]
+        )
+        container = ft.Container(
+            border_radius=30,
+            padding=ft.padding.only(top=10, left=15, right=15, bottom=10),
+            margin=ft.margin.only(bottom=10, top=0, right=10, left=10),
+            border=ft.border.all(2.0, ft.Colors.GREY_600),
+            content=column,
+            expand=True,
+        )
+        self.controls = [container]

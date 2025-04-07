@@ -103,8 +103,7 @@ class PastChatListContainer(ft.Container):
         super().__init__()
 
         self.content = content
-        self.border = ft.border.all(1, ft.Colors.OUTLINE)
-        self.border_radius = 5
+        self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
         self.padding = 10
         self.expand = True
 
