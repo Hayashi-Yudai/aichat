@@ -58,10 +58,17 @@ class PastChatItem(ft.Container):
 
         self.expand = True
         self.text = text
-        self.padding = 10
+        self.padding = ft.padding.only(left=0, right=10, top=10, bottom=10)
         self.spacing = 10
 
-        self.content = ft.Text(text)
+        self.content = ft.Row(
+            [
+                ft.Container(
+                    ft.Icon(ft.Icons.NOTES_ROUNDED, color=ft.Colors.WHITE70), padding=0
+                ),
+                ft.Text(text[:15]),
+            ]
+        )
         self.on_click = self.on_click_func
         self.on_hover = self.on_hover_func
 

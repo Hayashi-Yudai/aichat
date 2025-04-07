@@ -149,6 +149,6 @@ class ChatMessageDisplayContainer(ft.Container):
         # self.border = ft.border.all(1, ft.Colors.OUTLINE)
         self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
         self.border_radius = 5
-        self.padding = 0
+        self.padding = ft.padding.only(left=0, right=20, top=0, bottom=0)
         self.expand = True
         self.content = _ChatMessageList(page, agent)

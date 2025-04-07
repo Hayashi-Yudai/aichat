@@ -37,7 +37,11 @@ def main(page: ft.Page):
     page.add(
         ft.Row(
             [
-                ft.Container(left_side_bar_area, bgcolor=ft.Colors.GREY_900),
+                ft.Container(left_side_bar_area),
+                ft.VerticalDivider(
+                    width=1,
+                    color=ft.Colors.with_opacity(0.5, ft.Colors.WHITE),
+                ),
                 ft.Column(
                     [chat_messages_display_container, user_message_area], expand=True
                 ),
