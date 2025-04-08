@@ -47,7 +47,7 @@ class ModelSelector(ft.Dropdown):
         self.pubsub.send_all_on_topic(Topics.CHANGE_AGENT, e.data)
 
 
-class PastChatItem(ft.Container):
+class PastChatItem(ft.ListTile):
     def __init__(self, page: ft.Page, chat_id: int, text: str):
         super().__init__()
 
@@ -59,16 +59,12 @@ class PastChatItem(ft.Container):
         self.expand = True
         self.text = text
         self.padding = ft.padding.only(left=0, right=10, top=10, bottom=10)
+        self.content_padding = 0
         self.spacing = 10
 
-        self.content = ft.Row(
-            [
-                ft.Container(
-                    ft.Icon(ft.Icons.NOTES_ROUNDED, color=ft.Colors.WHITE70), padding=0
-                ),
-                ft.Text(text[:15]),
-            ]
-        )
+        self.leading = ft.Icon(ft.Icons.NOTES_ROUNDED, color=ft.Colors.WHITE70, size=13)
+        self.title = ft.Text(text[:15], color=ft.Colors.WHITE, size=13)
+        self.dense = (True,)
         self.on_click = self.on_click_func
         self.on_hover = self.on_hover_func
 

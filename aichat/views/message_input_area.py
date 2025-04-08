@@ -99,7 +99,7 @@ class UserMessageArea(ft.Row):
         container = ft.Container(
             border_radius=30,
             padding=ft.padding.only(top=10, left=15, right=15, bottom=10),
-            margin=ft.margin.only(bottom=10, top=0, right=10, left=10),
+            margin=ft.margin.only(bottom=10, top=0, right=10, left=15),
             border=ft.border.all(2.0, ft.Colors.GREY_600),
             content=column,
             expand=True,
