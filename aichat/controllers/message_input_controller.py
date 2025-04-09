@@ -26,12 +26,10 @@ class MessageInputController:
         self,
         page: ft.Page,
         update_view_callback: Callable[[], None],
-        focus_callback: Callable[[], None],
     ):
         self.role = Role(config.USER_NAME, config.USER_AVATAR_COLOR)
         self.pubsub = page.pubsub
         self.update_view_callback = update_view_callback
-        self.focus_callback = focus_callback
 
     def send_message(self, chat_id: str, text: str):
         # User messageの追加
@@ -42,7 +40,6 @@ class MessageInputController:
         self.pubsub.send_all_on_topic(topic, [msg])
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
-        self.focus_callback()
         self.update_view_callback()
 
 

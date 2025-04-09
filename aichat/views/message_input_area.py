@@ -25,13 +25,17 @@ class _MessageInputArea(ft.TextField):
         self.value = ""
 
         self.controller = MessageInputController(
-            page=page, update_view_callback=self.update, focus_callback=self.focus
+            page=page, update_view_callback=self.update_view_func
         )
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):
         self.controller.send_message(self.session.get("chat_id"), e.control.value)
+
+    def update_view_func(self):
         self.value = ""
+        self.focus()
+        self.update()
 
 
 class _FileLoader(ft.FilePicker):
