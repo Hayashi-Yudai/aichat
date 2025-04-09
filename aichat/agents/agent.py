@@ -8,6 +8,10 @@ from models.role import Role
 
 
 class Agent(Protocol):
+    model: StrEnum
+    role: Role
+    streamable: bool
+
     def _construct_request(self, message: Message) -> dict[str, Any]: ...
 
     def request(self, messages: list[Message]) -> str: ...

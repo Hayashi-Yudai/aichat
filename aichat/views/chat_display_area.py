@@ -73,10 +73,12 @@ class _ChatMessageList(ft.ListView):
         self.expand = True
         self.spacing = 10
         self.auto_scroll = False
-        self.controls = []
+        self.controls: list[_ChatMessage] = []
 
         self._item_builder = _ChatMessage
-        self.controller = ChatDisplayController(agent=agent)
+        self.controller = ChatDisplayController(
+            agent=agent, update_view_callback=self.update
+        )
 
         self.pubsub.subscribe_topic(Topics.START_SUBMISSION, self.in_progress_state)
         self.pubsub.subscribe_topic(

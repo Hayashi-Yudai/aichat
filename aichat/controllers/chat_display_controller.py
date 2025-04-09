@@ -1,4 +1,4 @@
-from typing import Generator
+from typing import Callable, Generator
 
 import flet as ft
 from loguru import logger
@@ -8,8 +8,9 @@ from models.message import Message
 
 
 class ChatDisplayController:
-    def __init__(self, agent: Agent):
+    def __init__(self, agent: Agent, update_view_callback: Callable[[], None]):
         self.agent = agent
+        self.update_view_callback = update_view_callback
 
     def get_agent_response(
         self, controls: list[ft.Row]
@@ -44,7 +45,6 @@ class ChatDisplayController:
 
     def change_agent(self, model: str):
         self.agent = get_agent_by_model(model)
-
         logger.debug(f"Agent model changed to: {self.agent.model}")
 
     def get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
