@@ -78,7 +78,9 @@ class _ChatMessageList(ft.ListView):
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(
-            agent=agent, update_view_callback=self.update
+            agent=agent,
+            update_content_callback=self.update_content_func,
+            item_builder=_ChatMessage,
         )
 
         self.pubsub.subscribe_topic(Topics.START_SUBMISSION, self.in_progress_state)
@@ -88,6 +90,10 @@ class _ChatMessageList(ft.ListView):
         self.pubsub.subscribe_topic(Topics.CHANGE_AGENT, self.change_agent)
         self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
         self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.start_new_chat)
+
+    def update_content_func(self, controls: list[ft.Control]):
+        self.controls = controls
+        self.update()
 
     def append_new_message_to_list(self, topic: Topics, messages: list[str]):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
@@ -102,8 +108,12 @@ class _ChatMessageList(ft.ListView):
         self.controls.append(InprogressMessage("Agent is typing..."))
         self.update()
 
+        chat_id = self.controls[0].message.chat_id
+        messages = [
+            ctl.message for ctl in self.controls if not ctl.exclude_from_agent_request
+        ]
         for i, agent_response in enumerate(
-            self.controller.get_agent_response(self.controls)
+            self.controller.get_agent_response(chat_id, messages)
         ):
             if i == 0:
                 self.controls.pop()
@@ -126,21 +136,17 @@ class _ChatMessageList(ft.ListView):
 
     def restore_past_chat(self, topic: Topics, chat_id: int):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-
-        messages = self.controller.get_all_messages_by_chat_id(chat_id)
-        self.controls = [self._item_builder(m) for m in messages]
-
-        self.update()
+        self.controller.restore_past_chat(chat_id)
 
     def start_new_chat(self, topic: Topics, msg: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controls = []
-        self.update()
+        self.controller.clear_controls()
 
     def in_progress_state(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controls.append(InprogressMessage(message))
-        self.update()
+        self.controller.append_in_progress_message(
+            self.controls, InprogressMessage(message)
+        )
 
 
 class ChatMessageDisplayContainer(ft.Container):
