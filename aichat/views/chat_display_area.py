@@ -1,6 +1,7 @@
 import flet as ft
 from loguru import logger
 
+import config
 from agents.agent import Agent
 from models.message import Message, ContentType
 
@@ -94,7 +95,7 @@ class _ChatMessageList(ft.ListView):
             self.controls.pop()
 
         self.controls.extend([self._item_builder(m) for m in messages])
-        if self.controls[-1].message.role.name == "App":
+        if self.controls[-1].message.role.name == config.APP_ROLE_NAME:
             self.update()
             return
 

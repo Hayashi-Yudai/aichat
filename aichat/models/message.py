@@ -62,7 +62,7 @@ class Message:
         elif config.AGENT_NAME in t[6]:
             color = config.AGENT_AVATAR_COLOR
         else:
-            color = config.APP_AVATAR_COLOR
+            color = config.APP_ROLE_AVATAR_COLOR
         return cls(t[0], t[1], t[2], t[3], t[4], t[5], Role(t[6], color))
 
     @property
