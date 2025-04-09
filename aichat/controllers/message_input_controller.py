@@ -1,6 +1,7 @@
 import base64
 import os
 from pathlib import Path
+from typing import Callable
 
 import flet as ft
 from flet.core.file_picker import FilePickerFile
@@ -21,9 +22,16 @@ class MessageInputController:
     ユーザーがサブミット時にチャット欄に書いた入力を受取り、処理を実行する責務をもつ
     """
 
-    def __init__(self, page: ft.Page):
+    def __init__(
+        self,
+        page: ft.Page,
+        update_view_callback: Callable[[], None],
+        focus_callback: Callable[[], None],
+    ):
         self.role = Role(config.USER_NAME, config.USER_AVATAR_COLOR)
         self.pubsub = page.pubsub
+        self.update_view_callback = update_view_callback
+        self.focus_callback = focus_callback
 
     def send_message(self, chat_id: str, text: str):
         # User messageの追加
@@ -34,10 +42,16 @@ class MessageInputController:
         self.pubsub.send_all_on_topic(topic, [msg])
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 
+        self.focus_callback()
+        self.update_view_callback()
+
 
 class FileLoaderController:
-    def __init__(self, pubsub: ft.PubSubClient):
+    def __init__(
+        self, pubsub: ft.PubSubClient, update_view_callback: Callable[[], None]
+    ):
         self.pubsub = pubsub
+        self.update_view_callback = update_view_callback
 
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
         self.pubsub.send_all_on_topic(Topics.START_SUBMISSION, "Processing file...")
@@ -94,6 +108,8 @@ class FileLoaderController:
         topic = Topics.SUBMIT_MESSAGE
         self.pubsub.send_all_on_topic(topic, messages)
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
+
+        self.update_view_callback()
 
     def parse_pdf(self, file_path: str, chat_id: str) -> list[Message]:
         text = ""
