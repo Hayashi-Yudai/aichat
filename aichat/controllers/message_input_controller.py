@@ -50,33 +50,28 @@ class FileLoaderController:
         self.pubsub = pubsub
         self.update_view_callback = update_view_callback
 
+    def append_files(self, e: ft.FilePickerResultEvent, chat_id: str):
+        for f in e.files:
+            self.append_file_content_to_chatlist(chat_id, f)
+
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
         self.pubsub.send_all_on_topic(Topics.START_SUBMISSION, "Processing file...")
         file_path = Path(file.path)
-        messages = []
+        messages: list[Message] = []
         match file_path.suffix.lstrip(".").lower():
             case "png":
-                with open(file.path, "rb") as f:
-                    content = base64.b64encode(f.read()).decode("utf-8")
-
-                msg = Message.construct_auto_file(
+                msg = self._image_to_message(
                     chat_id=chat_id,
-                    display_content=f"File Uploaded: {file_path.name}",
-                    system_content=content,
+                    file_path=file_path,
                     content_type=ContentType.PNG,
-                    role=Role("App", ft.Colors.GREY),
                 )
                 msg.insert_into_db()
                 messages.append(msg)
             case "jpg" | "jpeg":
-                with open(file.path, "rb") as f:
-                    content = base64.b64encode(f.read()).decode("utf-8")
-                msg = Message.construct_auto_file(
+                msg = self._image_to_message(
                     chat_id=chat_id,
-                    display_content=f"File Uploaded: {file_path.name}",
-                    system_content=content,
+                    file_path=file_path,
                     content_type=ContentType.JPEG,
-                    role=Role("App", ft.Colors.GREY),
                 )
                 msg.insert_into_db()
                 messages.append(msg)
@@ -94,7 +89,7 @@ class FileLoaderController:
                         display_content=f"File Uploaded: {file_path.name}",
                         system_content=content,
                         content_type=ContentType.TEXT,
-                        role=Role("App", ft.Colors.GREY),
+                        role=Role(config.APP_ROLE_NAME, config.APP_ROLE_AVATAR_COLOR),
                     )
                     msg.insert_into_db()
                     messages.append(msg)
@@ -108,22 +103,27 @@ class FileLoaderController:
 
         self.update_view_callback()
 
+    def _image_to_message(
+        self, chat_id: str, file_path: Path, content_type: ContentType
+    ) -> Message:
+        with open(file_path, "rb") as f:
+            content = base64.b64encode(f.read()).decode("utf-8")
+
+        msg = Message.construct_auto_file(
+            chat_id=chat_id,
+            display_content=f"File Uploaded: {file_path.name}",
+            system_content=content,
+            content_type=content_type,
+            role=Role(config.APP_ROLE_NAME, config.APP_ROLE_AVATAR_COLOR),
+        )
+
+        return msg
+
     def parse_pdf(self, file_path: str, chat_id: str) -> list[Message]:
         text = ""
         if config.USE_MISTRAL_OCR and os.environ.get("MISTRAL_API_KEY"):
-            logger.info("Using Mistral OCR to parse PDF")
             client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
-
-            logger.info(f"Uploading PDF to Mistral...: {file_path}")
-            uploaded_pdf = client.files.upload(
-                file={
-                    "file_name": file_path.split("/")[-1],
-                    "content": open(file_path, "rb"),
-                },
-                purpose="ocr",
-            )
-
-            signed_url = client.files.get_signed_url(file_id=uploaded_pdf.id)
+            signed_url = self._upload_file_to_mistral_dataset(client, file_path)
 
             logger.info("Processing PDF with Mistral OCR...")
             ocr_response = client.ocr.process(
@@ -182,3 +182,17 @@ class FileLoaderController:
             ]
 
         return messages
+
+    def _upload_file_to_mistral_dataset(self, client: Mistral, file_path: Path) -> str:
+        logger.info("Using Mistral OCR to parse PDF")
+
+        logger.info(f"Uploading File to Mistral...: {file_path}")
+        uploaded_pdf = client.files.upload(
+            file={
+                "file_name": file_path.split("/")[-1],
+                "content": open(file_path, "rb"),
+            },
+            purpose="ocr",
+        )
+
+        return client.files.get_signed_url(file_id=uploaded_pdf.id)

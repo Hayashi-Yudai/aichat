@@ -54,10 +54,7 @@ class _FileLoader(ft.FilePicker):
 
     def on_result_func(self, e: ft.FilePickerResultEvent):
         logger.debug(f"Uploaded files: {e.files}")
-        for f in e.files:
-            self.controller.append_file_content_to_chatlist(
-                self.session.get("chat_id"), f
-            )
+        self.controller.append_files(e=e, chat_id=self.session.get("chat_id"))
 
 
 class UserMessageArea(ft.Row):
