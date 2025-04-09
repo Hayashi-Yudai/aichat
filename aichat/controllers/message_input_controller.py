@@ -6,7 +6,7 @@ from typing import Callable
 import flet as ft
 from flet.core.file_picker import FilePickerFile
 from loguru import logger
-from mistralai import Mistral
+from mistralai import Mistral, models
 import pdfplumber
 
 import config
@@ -76,7 +76,7 @@ class FileLoaderController:
                 msg.insert_into_db()
                 messages.append(msg)
             case "pdf":
-                messages.extend(self.parse_pdf(file.path, chat_id))
+                messages.extend(self._parse_pdf(file.path, chat_id))
                 for m in messages:
                     m.insert_into_db()
             case _:
@@ -119,22 +119,13 @@ class FileLoaderController:
 
         return msg
 
-    def parse_pdf(self, file_path: str, chat_id: str) -> list[Message]:
+    def _parse_pdf(self, file_path: str, chat_id: str) -> list[Message]:
         text = ""
         if config.USE_MISTRAL_OCR and os.environ.get("MISTRAL_API_KEY"):
             client = Mistral(api_key=os.environ.get("MISTRAL_API_KEY"))
             signed_url = self._upload_file_to_mistral_dataset(client, file_path)
+            ocr_response = self._get_ocr_response(client, signed_url)
 
-            logger.info("Processing PDF with Mistral OCR...")
-            ocr_response = client.ocr.process(
-                model="mistral-ocr-latest",
-                document={
-                    "type": "document_url",
-                    "document_url": signed_url.url,
-                },
-                include_image_base64=True,
-            )
-            logger.info("OCR response received!")
             for idx, p in enumerate(ocr_response.pages):
                 if idx == 0:
                     logger.debug(p.markdown)
@@ -146,7 +137,7 @@ class FileLoaderController:
                     display_content=f"File Uploaded: {file_path.rsplit('/', 1)[-1]}",
                     system_content=text,
                     content_type=ContentType.TEXT,
-                    role=Role("App", ft.Colors.GREY),
+                    role=Role(config.APP_ROLE_NAME, config.APP_ROLE_AVATAR_COLOR),
                 )
             ]
             for page in ocr_response.pages:
@@ -162,7 +153,9 @@ class FileLoaderController:
                                 "data:image/jpeg;base64,", ""
                             ),
                             content_type=ContentType.JPEG,
-                            role=Role("App", ft.Colors.GREY),
+                            role=Role(
+                                config.APP_ROLE_NAME, config.APP_ROLE_AVATAR_COLOR
+                            ),
                         )
                     )
         else:
@@ -196,3 +189,17 @@ class FileLoaderController:
         )
 
         return client.files.get_signed_url(file_id=uploaded_pdf.id)
+
+    def _get_ocr_response(self, client: Mistral, signed_url: str) -> models.OCRResponse:
+        logger.info("Getting OCR response from Mistral...")
+        ocr_response = client.ocr.process(
+            model="mistral-ocr-latest",
+            document={
+                "type": "document_url",
+                "document_url": signed_url,
+            },
+            include_image_base64=True,
+        )
+        logger.info("OCR response received!")
+
+        return ocr_response
