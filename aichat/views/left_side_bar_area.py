@@ -63,7 +63,7 @@ class PastChatItem(ft.ListTile):
         self.spacing = 10
 
         self.leading = ft.Icon(ft.Icons.NOTES_ROUNDED, color=ft.Colors.WHITE70, size=13)
-        self.title = ft.Text(text[:15], color=ft.Colors.WHITE, size=13)
+        self.title = ft.Text(text[:16], color=ft.Colors.WHITE, size=13)
         self.dense = (True,)
         self.on_click = self.on_click_func
         self.on_hover = self.on_hover_func
