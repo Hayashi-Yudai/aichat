@@ -86,19 +86,24 @@ class PastChatList(ft.ListView):
 
         self.page = page
         self.expand = True
-        self.controller = PastChatListController()
 
-        self.update_controls(page)
+        self.controller = PastChatListController(
+            update_view_callback=self.update_view_func, item_builder=PastChatItem
+        )
+        self.controls = [
+            PastChatItem(page, ch.id, ch.title)
+            for ch in self.controller.collect_all_chat()
+        ]
+
         page.pubsub.subscribe_topic(Topics.UPDATE_CHAT, self._update_controls)
 
-    def update_controls(self, page: ft.Page):
-        chats = self.controller.collect_all_chat()
-        self.controls = [PastChatItem(page, c.id, c.title) for c in chats]
+    def update_view_func(self, controls: list[PastChatItem]):
+        self.controls = controls
+        self.update()
 
     def _update_controls(self, topic: Topics, data: list):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.update_controls(self.page)
-        self.update()
+        self.controller.update_chat_list(self.page)
 
 
 class PastChatListContainer(ft.Container):

@@ -26,11 +26,14 @@ class _ChatMessage(ft.Row):
                     blockquote_decoration=ft.BoxDecoration(bgcolor=ft.Colors.GREY)
                 ),
             )
-        elif (
-            message.content_type == ContentType.PNG
-            or message.content_type == ContentType.JPEG
-        ):
-            content = ft.Image(src_base64=message.system_content, width=500)
+        elif message.content_type in [ContentType.PNG, ContentType.JPEG]:
+            content = ft.Column(
+                [
+                    ft.Text(message.display_content),
+                    ft.Image(src_base64=message.system_content, width=500),
+                ]
+            )
+
         self.controls = [
             ft.CircleAvatar(
                 content=ft.Text(message.role.name[0]),
@@ -105,8 +108,9 @@ class _ChatMessageList(ft.ListView):
             self.update()
             return
 
-        self.controls.append(InprogressMessage("Agent is typing..."))
-        self.update()
+        self.controller.append_in_progress_message(
+            self.controls, InprogressMessage("Agent is typing...")
+        )
 
         chat_id = self.controls[0].message.chat_id
         messages = [
