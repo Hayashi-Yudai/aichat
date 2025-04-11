@@ -4,7 +4,7 @@ import flet as ft
 from loguru import logger
 
 import config
-from agents import Agent, get_agent_by_model
+from agents import Agent
 from models.message import Message
 
 
@@ -26,8 +26,8 @@ class ChatDisplayController:
     def clear_controls(self):
         self.update_content_callback([])
 
-    def change_agent(self, model: str):
-        self.agent = get_agent_by_model(model)
+    def change_agent(self, agent: Agent):
+        self.agent = agent
         logger.debug(f"Agent model changed to: {self.agent.model}")
 
     def append_in_progress_message(self, controls: list[ft.Row], message: ft.Row):

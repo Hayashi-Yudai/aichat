@@ -5,10 +5,11 @@ from controllers.message_input_controller import (
     MessageInputController,
     FileLoaderController,
 )
+from utils.state_store import StateDict
 
 
 class _MessageInputArea(ft.TextField):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, state_dict: StateDict):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -27,10 +28,11 @@ class _MessageInputArea(ft.TextField):
         self.controller = MessageInputController(
             page=page, update_view_callback=self.update_view_func
         )
+        self.state_dict = state_dict
         self.on_submit = self.on_submit_func
 
     def on_submit_func(self, e: ft.ControlEvent):
-        self.controller.send_message(self.session.get("chat_id"), e.control.value)
+        self.controller.send_message(self.state_dict["chat_id"].value, e.control.value)
 
     def update_view_func(self):
         self.value = ""
@@ -39,7 +41,7 @@ class _MessageInputArea(ft.TextField):
 
 
 class _FileLoader(ft.FilePicker):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, state_dict: StateDict):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -51,20 +53,21 @@ class _FileLoader(ft.FilePicker):
         self.controller = FileLoaderController(
             pubsub=page.pubsub, update_view_callback=self.update
         )
+        self.state_dict = state_dict
 
     def on_result_func(self, e: ft.FilePickerResultEvent):
         logger.debug(f"Uploaded files: {e.files}")
-        self.controller.append_files(e=e, chat_id=self.session.get("chat_id"))
+        self.controller.append_files(e=e, chat_id=self.state_dict["chat_id"].value)
 
 
 class UserMessageArea(ft.Row):
-    def __init__(self, page: ft.Page):
+    def __init__(self, page: ft.Page, state_dict: StateDict):
         super().__init__()
 
         self.pubsub = page.pubsub
 
         # Widgets
-        self.file_picker = _FileLoader(page=page)
+        self.file_picker = _FileLoader(page=page, state_dict=state_dict)
 
         self.file_loader_icon = ft.IconButton(
             icon=ft.Icons.ADD,
@@ -72,12 +75,12 @@ class UserMessageArea(ft.Row):
             on_click=lambda _: self.file_picker.pick_files(allow_multiple=True),
             style=ft.ButtonStyle(color=ft.Colors.WHITE),
         )
-        self.message_input_area = _MessageInputArea(page=page)
+        self.message_input_area = _MessageInputArea(page=page, state_dict=state_dict)
         self.send_message_icon = ft.IconButton(
             icon=ft.Icons.SEND_ROUNDED,
             tooltip="Send message",
             on_click=lambda _: self.message_input_area.controller.send_message(
-                page.session.get("chat_id"), self.message_input_area.value
+                state_dict["chat_id"].value, self.message_input_area.value
             ),
             style=ft.ButtonStyle(color=ft.Colors.WHITE),
         )

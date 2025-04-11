@@ -65,7 +65,7 @@ class InprogressMessage(ft.Row):
 
 
 class _ChatMessageList(ft.ListView):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page, agent: Agent, state_dict: StateDict):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -86,9 +86,15 @@ class _ChatMessageList(ft.ListView):
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
-        self.pubsub.subscribe_topic(Topics.CHANGE_AGENT, self.change_agent)
-        self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
-        self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.start_new_chat)
+        state_dict.bind_callback(
+            "agent", lambda: self.change_agent(state_dict["agent"].value)
+        )
+        # TODO: Topic指定できるようにしたい
+        state_dict.bind_callback("chat_id", self.controller.clear_controls)
+        state_dict.bind_callback(
+            "chat_id",
+            lambda: self.controller.restore_past_chat(state_dict["chat_id"].value),
+        )
 
     def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
@@ -130,17 +136,12 @@ class _ChatMessageList(ft.ListView):
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
-    def change_agent(self, topic: Topics, model: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.change_agent(model)
+    def change_agent(self, agent: Agent):
+        self.controller.change_agent(agent)
 
     def restore_past_chat(self, topic: Topics, chat_id: int):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controller.restore_past_chat(chat_id)
-
-    def start_new_chat(self, topic: Topics, msg: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.clear_controls()
 
     def in_progress_state(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
@@ -150,7 +151,7 @@ class _ChatMessageList(ft.ListView):
 
 
 class ChatMessageDisplayContainer(ft.Container):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page, agent: Agent, state_dict: StateDict):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -160,4 +161,4 @@ class ChatMessageDisplayContainer(ft.Container):
         self.border_radius = 5
         self.padding = ft.padding.only(left=15, right=20, top=0, bottom=0)
         self.expand = True
-        self.content = _ChatMessageList(page, agent)
+        self.content = _ChatMessageList(page, agent, state_dict)

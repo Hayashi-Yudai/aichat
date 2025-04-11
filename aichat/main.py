@@ -8,6 +8,8 @@ from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
 from views.left_side_bar_area import LeftSideBarArea
 
+from utils.state_store import State, StateDict
+
 
 def main(page: ft.Page):
     page.window.width = 1200
@@ -22,15 +24,16 @@ def main(page: ft.Page):
     logger.debug("Initialize agent...")
     agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
 
-    # Session Variables
-    page.session.set("chat_id", str(uuid.uuid4()))
+    state_dict = StateDict({"chat_id": State(str(uuid.uuid4())), "agent": State(agent)})
 
     # Widgets
-    user_message_area = UserMessageArea(page=page)
+    user_message_area = UserMessageArea(page=page, state_dict=state_dict)
     chat_messages_display_container = ChatMessageDisplayContainer(
-        page=page, agent=agent
+        page=page, agent=agent, state_dict=state_dict
     )
-    left_side_bar_area = LeftSideBarArea(page=page, default_agent=agent)
+    left_side_bar_area = LeftSideBarArea(
+        page=page, default_agent=agent, state_dict=state_dict
+    )
 
     # overlayにwidgetを登録
     page.overlay.extend([user_message_area.file_picker])
