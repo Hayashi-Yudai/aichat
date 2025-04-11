@@ -8,31 +8,34 @@ from models.message import Message, ContentType
 from controllers.chat_display_controller import ChatDisplayController
 from topics import Topics
 
+from utils.state_store import StateDict
+
 
 class _ChatMessage(ft.Row):
     def __init__(self, message: Message):
         super().__init__()
 
-        self._message = message
+        self.message = message
         self.exclude_from_agent_request = False
 
         self.vertical_alignment = ft.CrossAxisAlignment.START
 
-        if message.content_type == ContentType.TEXT:
-            content = ft.Markdown(
-                message.display_content,
-                extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
-                md_style_sheet=ft.MarkdownStyleSheet(
-                    blockquote_decoration=ft.BoxDecoration(bgcolor=ft.Colors.GREY)
-                ),
-            )
-        elif message.content_type in [ContentType.PNG, ContentType.JPEG]:
-            content = ft.Column(
-                [
-                    ft.Text(message.display_content),
-                    ft.Image(src_base64=message.system_content, width=500),
-                ]
-            )
+        match message.content_type:
+            case ContentType.TEXT:
+                content = ft.Markdown(
+                    message.display_content,
+                    extension_set=ft.MarkdownExtensionSet.GITHUB_WEB,
+                    md_style_sheet=ft.MarkdownStyleSheet(
+                        blockquote_decoration=ft.BoxDecoration(bgcolor=ft.Colors.GREY)
+                    ),
+                )
+            case ContentType.PNG | ContentType.JPEG:
+                content = ft.Column(
+                    [
+                        ft.Text(message.display_content),
+                        ft.Image(src_base64=message.system_content, width=500),
+                    ]
+                )
 
         self.controls = [
             ft.CircleAvatar(
@@ -41,19 +44,12 @@ class _ChatMessage(ft.Row):
                 bgcolor=message.role.avatar_color,
             ),
             ft.Column(
-                [
-                    ft.Text(message.role.name),
-                    ft.SelectionArea(content),
-                ],
+                [ft.Text(message.role.name), ft.SelectionArea(content)],
                 tight=True,
                 spacing=5,
                 expand=True,
             ),
         ]
-
-    @property
-    def message(self) -> Message:
-        return self._message
 
 
 class InprogressMessage(ft.Row):
