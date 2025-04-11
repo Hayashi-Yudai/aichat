@@ -1,29 +1,33 @@
-from typing import Callable
+from typing import Any, Callable
+
+from topics import Topics
+
+
+class Bind:
+    def __init__(self, func: Callable[[], None], topic: Topics | None = None):
+        self.func = func
+        self.topic = topic
+
+    def __call__(self):
+        self.func()
 
 
 class State[T]:
     def __init__(self, var: T):
         self.var = var
-        self._binds = []
+        self._binds: list[Bind] = []
 
-    @property
-    def value(self) -> T:
-        return self.var
-
-    @value.setter
-    def value(self, new_value: T):
+    def set(self, new_value: T, topic: Topics | None = None):
+        """Set the state value and notify all bound callbacks."""
         self.var = new_value
 
         for bind in self._binds:
-            bind()
+            if bind.topic is None or bind.topic == topic:
+                bind()
 
-    def set(self, new_value: T):
-        """Set the state value and notify all bound callbacks."""
-        self.value = new_value
-
-    def bind_callback(self, callback: Callable[[], None]):
+    def bind_callback(self, callback: Callable[[], None], topic: Topics | None = None):
         """Bind a callback function to the state change."""
-        self._binds.append(callback)
+        self._binds.append(Bind(callback, topic))
 
 
 class StateDict:
@@ -36,12 +40,22 @@ class StateDict:
 
     def __getitem__(self, key: str) -> State:
         """Get a state by its key."""
-        return self._states.get(key)
+        return self._states.get(key).var
 
-    def bind_callback(self, key: str, callback: Callable[[], None]):
+    def bind_callback(
+        self, key: str, callback: Callable[[], None], topic: Topics | None = None
+    ):
         """Bind a callback to a state change."""
         state = self._states.get(key)
         if state:
-            state.bind_callback(callback)
+            state.bind_callback(callback, topic)
+        else:
+            raise KeyError(f"State '{key}' not found in StateDict.")
+
+    def set(self, key: str, value: Any, topic: Topics | None = None):
+        """Set the value of a state by its key."""
+        state = self._states.get(key)
+        if state:
+            state.set(value, topic)
         else:
             raise KeyError(f"State '{key}' not found in StateDict.")

@@ -20,10 +20,12 @@ class ChatDisplayController:
         self.item_builder = item_builder
 
     def restore_past_chat(self, chat_id: str):
+        logger.debug(f"{self.__class__.__name__} restoring past chat: {chat_id}")
         messages = self._get_all_messages_by_chat_id(chat_id)
         self.update_content_callback([self.item_builder(m) for m in messages])
 
     def clear_controls(self):
+        logger.debug(f"{self.__class__.__name__} clearing controls")
         self.update_content_callback([])
 
     def change_agent(self, agent: Agent):

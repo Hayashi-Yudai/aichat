@@ -87,20 +87,22 @@ class _ChatMessageList(ft.ListView):
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
         state_dict.bind_callback(
-            "agent", lambda: self.change_agent(state_dict["agent"].value)
+            "agent", lambda: self.change_agent(state_dict["agent"])
         )
-        # TODO: Topic指定できるようにしたい
-        state_dict.bind_callback("chat_id", self.controller.clear_controls)
+        state_dict.bind_callback(
+            "chat_id", self.controller.clear_controls, topic=Topics.NEW_CHAT
+        )
         state_dict.bind_callback(
             "chat_id",
-            lambda: self.controller.restore_past_chat(state_dict["chat_id"].value),
+            lambda: self.controller.restore_past_chat(state_dict["chat_id"]),
+            topic=Topics.PAST_CHAT_RESTORED,
         )
 
     def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
         self.update()
 
-    def append_new_message_to_list(self, topic: Topics, messages: list[str]):
+    def append_new_message_to_list(self, topic: Topics, messages: list[Message]):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         if len(self.controls) > 0 and isinstance(self.controls[-1], InprogressMessage):
             self.controls.pop()
