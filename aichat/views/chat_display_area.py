@@ -1,9 +1,6 @@
 import flet as ft
-from loguru import logger
 
-import config
 from models.message import Message, ContentType
-
 from controllers.chat_display_controller import ChatDisplayController
 from topics import Topics
 
@@ -80,13 +77,12 @@ class _ChatMessageList(ft.ListView):
         )
 
         self.pubsub.subscribe_topic(
-            Topics.START_SUBMISSION,
-            lambda _, msg: self.controller.add_new_message(
-                self.controls, InprogressMessage(msg)
-            ),
+            Topics.APPEND_MESSAGE,
+            lambda _, msg: self.controller.add_new_message(self.controls, msg),
         )
         self.pubsub.subscribe_topic(
-            Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
+            Topics.UPDATE_MESSAGE_STREAMLY,
+            lambda _, msg: self.controller.update_latest_message(self.controls, msg),
         )
         self.pubsub.subscribe_topic(
             Topics.PAST_CHAT_RESTORED,
@@ -99,44 +95,6 @@ class _ChatMessageList(ft.ListView):
     def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
         self.update()
-
-    def append_new_message_to_list(self, topic: Topics, messages: list[str]):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        if len(self.controls) > 0 and isinstance(self.controls[-1], InprogressMessage):
-            self.controls.pop()
-
-        self.controller.add_new_message(
-            self.controls, [self._item_builder(m) for m in messages]
-        )
-        if self.controls[-1].message.role.name == config.APP_ROLE_NAME:
-            self.update()
-            return
-
-        self.controller.add_new_message(
-            self.controls, InprogressMessage("Agent is typing...")
-        )
-
-        chat_id = self.controls[0].message.chat_id
-        messages = [
-            ctl.message for ctl in self.controls if not ctl.exclude_from_agent_request
-        ]
-        for i, agent_response in enumerate(
-            self.controller.get_agent_response(chat_id, messages)
-        ):
-            if i == 0:
-                self.controls.pop()
-                self.controls.append(self._item_builder(agent_response))
-            else:
-                self.controls[-1] = self._item_builder(agent_response)
-
-            self.auto_scroll = True
-            self.update()
-
-        self.auto_scroll = False
-        self.update()
-
-        logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
-        self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
 
 class ChatMessageDisplayContainer(ft.Container):

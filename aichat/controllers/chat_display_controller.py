@@ -1,10 +1,9 @@
-from typing import Callable, Generator
+from typing import Callable
 
 import flet as ft
-from loguru import logger
 
 import config
-from agents import Agent
+from topics import Topics
 from models.message import Message
 
 
@@ -26,37 +25,30 @@ class ChatDisplayController:
     def clear_controls(self):
         self.update_content_callback([])
 
-    def add_new_message(self, controls: list[ft.Row], message: ft.Row | list[ft.Row]):
+    def add_new_message(self, controls: list[ft.Row], message: Message | list[Message]):
         if isinstance(message, list):
-            self.update_content_callback(controls + message)
+            need_agent_request = (
+                message[-1].role.avatar_color == config.USER_AVATAR_COLOR
+            )
+
+            msg = [self.item_builder(m) for m in message]
+            new_control = controls + msg
+            self.update_content_callback(new_control)
         else:
-            self.update_content_callback(controls + [message])
+            need_agent_request = message.role.avatar_color == config.USER_AVATAR_COLOR
 
-    def get_agent_response(
-        self, chat_id: int, messages: list[Message]
-    ) -> Generator[Message, None, None]:
-        if messages[-1].role.name == config.APP_ROLE_NAME:
-            logger.info("Message from app. Skipping requesting to agent.")
-            return
+            new_control = controls + [self.item_builder(message)]
+            self.update_content_callback(new_control)
 
-        logger.info("Request to agent...")
-        response = ""
+        if need_agent_request:
+            messages = [ctl.message for ctl in new_control]
+            self.page.pubsub.send_all_on_topic(Topics.REQUEST_TO_AGENT, messages)
 
-        agent: Agent = self.page.session.get("agent")
+        self.page.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
-        if agent.streamable:
-            request_func = agent.request_streaming
-        else:
-            request_func = agent.request
-
-        for chunk in request_func(messages):
-            response += chunk
-            yield Message.construct_auto(chat_id, response, agent.role)
-
-        response_message = Message.construct_auto(chat_id, response, agent.role)
-        response_message.insert_into_db()
-
-        return response_message
+    def update_latest_message(self, controls: list[ft.Row], message: Message):
+        controls[-1] = self.item_builder(message)
+        self.update_content_callback(controls)
 
     def _get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
         return Message.get_all_by_chat_id(chat_id)

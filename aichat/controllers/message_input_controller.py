@@ -36,11 +36,8 @@ class MessageInputController:
         msg = Message.construct_auto(chat_id, text, self.role)
         msg.insert_into_db()
 
-        topic = Topics.SUBMIT_MESSAGE
-        self.pubsub.send_all_on_topic(topic, [msg])
-        logger.debug(f"{self.__class__.__name__} published topic: {topic}")
-
         self.update_view_callback()
+        self.pubsub.send_all_on_topic(Topics.APPEND_MESSAGE, msg)
 
 
 class FileLoaderController:
@@ -55,7 +52,6 @@ class FileLoaderController:
             self.append_file_content_to_chatlist(chat_id, f)
 
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
-        self.pubsub.send_all_on_topic(Topics.START_SUBMISSION, "Processing file...")
         file_path = Path(file.path)
         messages: list[Message] = []
         match file_path.suffix.lstrip(".").lower():
@@ -97,7 +93,7 @@ class FileLoaderController:
                     logger.error(f"Unsupported file type: {file.path}")
                     raise ValueError(f"Unsupported file type: {file.path}")
 
-        topic = Topics.SUBMIT_MESSAGE
+        topic = Topics.APPEND_MESSAGE
         self.pubsub.send_all_on_topic(topic, messages)
         logger.debug(f"{self.__class__.__name__} published topic: {topic}")
 

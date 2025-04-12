@@ -3,6 +3,7 @@ import uuid
 import flet as ft
 from loguru import logger
 
+from agents.agent import AgentController
 from agents.openai_agent import OpenAIAgent, OpenAIModel
 from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
@@ -21,6 +22,7 @@ def main(page: ft.Page):
 
     logger.debug("Initialize agent...")
     agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
+    _ = AgentController(page=page)
 
     # Session Variables
     page.session.set("chat_id", str(uuid.uuid4()))
