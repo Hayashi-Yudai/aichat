@@ -1,13 +1,14 @@
 import itertools
 from enum import StrEnum
 
+from .agent import Agent
 from .openai_agent import OpenAIAgent, OpenAIModel
 from .gemini_agent import GeminiAgent, GeminiModel
 from .deepseek_agent import DeepSeekAgent, DeepSeekModel
 from .claude_agent import ClaudeAgent, ClaudeModel
 from .local_agent import LocalAgent, LocalModel
 from .mlx_model_agent import MLXAgent, MLXModel
-from .agent import Agent, DummyAgent, DummyModel
+from .dummy_agent import DummyAgent, DummyModel
 
 
 all_models = list(
