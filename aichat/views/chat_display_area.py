@@ -79,7 +79,12 @@ class _ChatMessageList(ft.ListView):
             item_builder=_ChatMessage,
         )
 
-        self.pubsub.subscribe_topic(Topics.START_SUBMISSION, self.in_progress_state)
+        self.pubsub.subscribe_topic(
+            Topics.START_SUBMISSION,
+            lambda _, msg: self.controller.append_new_message(
+                self.controls, InprogressMessage(msg)
+            ),
+        )
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
@@ -105,7 +110,7 @@ class _ChatMessageList(ft.ListView):
             self.update()
             return
 
-        self.controller.append_in_progress_message(
+        self.controller.append_new_message(
             self.controls, InprogressMessage("Agent is typing...")
         )
 
@@ -130,12 +135,6 @@ class _ChatMessageList(ft.ListView):
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
-
-    def in_progress_state(self, topic: Topics, message: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.append_in_progress_message(
-            self.controls, InprogressMessage(message)
-        )
 
 
 class ChatMessageDisplayContainer(ft.Container):

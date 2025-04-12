@@ -26,7 +26,7 @@ class ChatDisplayController:
     def clear_controls(self):
         self.update_content_callback([])
 
-    def append_in_progress_message(self, controls: list[ft.Row], message: ft.Row):
+    def append_new_message(self, controls: list[ft.Row], message: ft.Row):
         self.update_content_callback(controls + [message])
 
     def get_agent_response(
