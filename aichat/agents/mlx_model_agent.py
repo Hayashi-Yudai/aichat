@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
 
 from loguru import logger
 from transformers import TextIteratorStreamer
@@ -52,7 +52,7 @@ class MLXAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    async def request(self, messages: list[Message]) -> list[str]:
         logger.info("Generating message with Gemma...")
 
         request_body = self.tokenizer.apply_chat_template(
@@ -64,7 +64,9 @@ class MLXAgent:
 
         return [output]
 
-    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
         logger.info("Generate message with gemma in streaming.")
         request_body = self.tokenizer.apply_chat_template(
             [self._construct_request(m) for m in messages], add_generation_prompt=True

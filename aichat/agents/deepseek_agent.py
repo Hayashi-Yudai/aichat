@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
 
 from loguru import logger
 from openai import OpenAI
@@ -47,7 +47,7 @@ class DeepSeekAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> str:
+    async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to DeepSeek...")
 
         request_body = [self._construct_request(m) for m in messages]
@@ -62,7 +62,9 @@ class DeepSeekAgent:
 
         return content
 
-    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to DeepSeek...")
 
         request_body = [self._construct_request(m) for m in messages]

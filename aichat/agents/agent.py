@@ -1,3 +1,4 @@
+import asyncio
 from enum import StrEnum
 from typing import Any, Protocol, Generator
 
@@ -17,9 +18,9 @@ class Agent(Protocol):
 
     def _construct_request(self, message: Message) -> dict[str, Any]: ...
 
-    def request(self, messages: list[Message]) -> str: ...
+    async def request(self, messages: list[Message]) -> str: ...
 
-    def request_streaming(
+    async def request_streaming(
         self, messages: list[Message]
     ) -> Generator[str, None, None]: ...
 
@@ -41,20 +42,34 @@ class AgentController:
         agent: Agent = self.page.session.get("agent")
         chat_id: str = self.page.session.get("chat_id")
 
-        if agent.streamable:
-            response = ""
-            for i, chunk in enumerate(agent.request_streaming(messages)):
-                response += chunk
-                response_message = Message.construct_auto(chat_id, response, agent.role)
-                if i == 0:
-                    topic = Topics.APPEND_MESSAGE
-                else:
-                    topic = Topics.UPDATE_MESSAGE_STREAMLY
 
-                self.page.pubsub.send_all_on_topic(topic, response_message)
-        else:
-            response = agent.request(messages)
-            response_message = Message.construct_auto(chat_id, response, agent.role)
-            self.page.pubsub.send_all_on_topic(Topics.APPEND_MESSAGE, response_message)
-
+        request_func = self.stream_request if agent.streamable else self.batch_request
+        response_message = asyncio.run(request_func(chat_id, messages, agent))
         response_message.insert_into_db()
+
+    async def stream_request(
+        self, chat_id: str, messages: list[Message], agent: Agent
+    ) -> Message:
+        response = ""
+        i = 0
+        async for chunk in agent.request_streaming(messages):
+            response += chunk
+            response_message = Message.construct_auto(chat_id, response, agent.role)
+            if i == 0:
+                topic = Topics.APPEND_MESSAGE
+            else:
+                topic = Topics.UPDATE_MESSAGE_STREAMLY
+
+            self.page.pubsub.send_all_on_topic(topic, response_message)
+            i += 1
+
+        return response_message
+
+    async def batch_request(
+        self, chat_id: str, messages: list[Message], agent: Agent
+    ) -> Message:
+        response = await agent.request(messages)
+        response_message = Message.construct_auto(chat_id, response, agent.role)
+        self.page.pubsub.send_all_on_topic(Topics.APPEND_MESSAGE, response_message)
+
+        return response_message

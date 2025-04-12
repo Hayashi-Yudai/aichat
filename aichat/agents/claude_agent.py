@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
 
 from loguru import logger
 import anthropic
@@ -60,11 +60,10 @@ class ClaudeAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> str:
+    async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Claude...")
 
         request_body = [self._construct_request(m) for m in messages]
-        logger.debug(f"Request body: {request_body}")
         chat_completion = self.client.messages.create(
             messages=request_body,
             model=self.model,
@@ -77,7 +76,9 @@ class ClaudeAgent:
 
         return content
 
-    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
         request_body = [self._construct_request(m) for m in messages]
 
         with self.client.messages.stream(

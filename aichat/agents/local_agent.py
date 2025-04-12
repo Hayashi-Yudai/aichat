@@ -1,6 +1,6 @@
 from enum import StrEnum
 from threading import Thread
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
 
 from loguru import logger
 import torch
@@ -56,7 +56,7 @@ class LocalAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    async def request(self, messages: list[Message]) -> list[str]:
         logger.info("Generating message with Gemma...")
 
         request_body = [self._construct_request(m) for m in messages]
@@ -68,7 +68,9 @@ class LocalAgent:
 
         return [content]
 
-    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
         logger.info("Generate message with gemma in streaming.")
         request_body = [self._construct_request(m) for m in messages]
         generation_kwargs = {
