@@ -3,7 +3,7 @@ import uuid
 import flet as ft
 from loguru import logger
 
-from agents import Agent, all_models
+from agents import Agent, all_models, get_agent_by_model
 from controllers.left_side_bar_controller import PastChatListController
 from topics import Topics
 
@@ -43,8 +43,7 @@ class ModelSelector(ft.Dropdown):
 
     def on_change_func(self, e: ft.ControlEvent):
         logger.info(f"Agent changed to: {e.data}")
-
-        self.pubsub.send_all_on_topic(Topics.CHANGE_AGENT, e.data)
+        self.page.session.set("agent", get_agent_by_model(e.data))
 
 
 class PastChatItem(ft.ListTile):

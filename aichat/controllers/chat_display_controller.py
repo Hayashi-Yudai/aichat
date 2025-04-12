@@ -4,18 +4,18 @@ import flet as ft
 from loguru import logger
 
 import config
-from agents import Agent, get_agent_by_model
+from agents import Agent
 from models.message import Message
 
 
 class ChatDisplayController:
     def __init__(
         self,
-        agent: Agent,
+        page: ft.Page,
         update_content_callback: Callable[[list[ft.Row]], None],
         item_builder: Callable[[Message], ft.Row],
     ):
-        self.agent = agent
+        self.page = page
         self.update_content_callback = update_content_callback
         self.item_builder = item_builder
 
@@ -25,10 +25,6 @@ class ChatDisplayController:
 
     def clear_controls(self):
         self.update_content_callback([])
-
-    def change_agent(self, model: str):
-        self.agent = get_agent_by_model(model)
-        logger.debug(f"Agent model changed to: {self.agent.model}")
 
     def append_in_progress_message(self, controls: list[ft.Row], message: ft.Row):
         self.update_content_callback(controls + [message])
@@ -43,16 +39,18 @@ class ChatDisplayController:
         logger.info("Request to agent...")
         response = ""
 
-        if self.agent.streamable:
-            request_func = self.agent.request_streaming
+        agent: Agent = self.page.session.get("agent")
+
+        if agent.streamable:
+            request_func = agent.request_streaming
         else:
-            request_func = self.agent.request
+            request_func = agent.request
 
         for chunk in request_func(messages):
             response += chunk
-            yield Message.construct_auto(chat_id, response, self.agent.role)
+            yield Message.construct_auto(chat_id, response, agent.role)
 
-        response_message = Message.construct_auto(chat_id, response, self.agent.role)
+        response_message = Message.construct_auto(chat_id, response, agent.role)
         response_message.insert_into_db()
 
         return response_message

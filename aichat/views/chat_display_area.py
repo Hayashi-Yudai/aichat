@@ -2,13 +2,10 @@ import flet as ft
 from loguru import logger
 
 import config
-from agents.agent import Agent
 from models.message import Message, ContentType
 
 from controllers.chat_display_controller import ChatDisplayController
 from topics import Topics
-
-from utils.state_store import StateDict
 
 
 class _ChatMessage(ft.Row):
@@ -65,7 +62,7 @@ class InprogressMessage(ft.Row):
 
 
 class _ChatMessageList(ft.ListView):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -77,7 +74,7 @@ class _ChatMessageList(ft.ListView):
 
         self._item_builder = _ChatMessage
         self.controller = ChatDisplayController(
-            agent=agent,
+            page=page,
             update_content_callback=self.update_content_func,
             item_builder=_ChatMessage,
         )
@@ -86,7 +83,6 @@ class _ChatMessageList(ft.ListView):
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
-        self.pubsub.subscribe_topic(Topics.CHANGE_AGENT, self.change_agent)
         self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
         self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.start_new_chat)
 
@@ -130,10 +126,6 @@ class _ChatMessageList(ft.ListView):
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
-    def change_agent(self, topic: Topics, model: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.change_agent(model)
-
     def restore_past_chat(self, topic: Topics, chat_id: int):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controller.restore_past_chat(chat_id)
@@ -150,7 +142,7 @@ class _ChatMessageList(ft.ListView):
 
 
 class ChatMessageDisplayContainer(ft.Container):
-    def __init__(self, page: ft.Page, agent: Agent):
+    def __init__(self, page: ft.Page):
         super().__init__()
 
         self.pubsub = page.pubsub
@@ -160,4 +152,4 @@ class ChatMessageDisplayContainer(ft.Container):
         self.border_radius = 5
         self.padding = ft.padding.only(left=15, right=20, top=0, bottom=0)
         self.expand = True
-        self.content = _ChatMessageList(page, agent)
+        self.content = _ChatMessageList(page)

@@ -24,12 +24,11 @@ def main(page: ft.Page):
 
     # Session Variables
     page.session.set("chat_id", str(uuid.uuid4()))
+    page.session.set("agent", agent)
 
     # Widgets
     user_message_area = UserMessageArea(page=page)
-    chat_messages_display_container = ChatMessageDisplayContainer(
-        page=page, agent=agent
-    )
+    chat_messages_display_container = ChatMessageDisplayContainer(page=page)
     left_side_bar_area = LeftSideBarArea(page=page, default_agent=agent)
 
     # overlayにwidgetを登録
