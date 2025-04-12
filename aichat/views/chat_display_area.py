@@ -83,8 +83,13 @@ class _ChatMessageList(ft.ListView):
         self.pubsub.subscribe_topic(
             Topics.SUBMIT_MESSAGE, self.append_new_message_to_list
         )
-        self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
-        self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.start_new_chat)
+        self.pubsub.subscribe_topic(
+            Topics.PAST_CHAT_RESTORED,
+            lambda _, chat_id: self.controller.restore_past_chat(chat_id),
+        )
+        self.pubsub.subscribe_topic(
+            Topics.NEW_CHAT, lambda _, __: self.controller.clear_controls()
+        )
 
     def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
@@ -125,14 +130,6 @@ class _ChatMessageList(ft.ListView):
 
         logger.debug(f"{self.__class__.__name__} published topic: {Topics.UPDATE_CHAT}")
         self.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
-
-    def restore_past_chat(self, topic: Topics, chat_id: int):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.restore_past_chat(chat_id)
-
-    def start_new_chat(self, topic: Topics, msg: str):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
-        self.controller.clear_controls()
 
     def in_progress_state(self, topic: Topics, message: str):
         logger.debug(f"{self.__class__.__name__} received topic: {topic}")
