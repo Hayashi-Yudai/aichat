@@ -42,7 +42,6 @@ class AgentController:
         agent: Agent = self.page.session.get("agent")
         chat_id: str = self.page.session.get("chat_id")
 
-
         request_func = self.stream_request if agent.streamable else self.batch_request
         response_message = asyncio.run(request_func(chat_id, messages, agent))
         response_message.insert_into_db()
