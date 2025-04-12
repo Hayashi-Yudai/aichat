@@ -81,7 +81,7 @@ class _ChatMessageList(ft.ListView):
 
         self.pubsub.subscribe_topic(
             Topics.START_SUBMISSION,
-            lambda _, msg: self.controller.append_new_message(
+            lambda _, msg: self.controller.add_new_message(
                 self.controls, InprogressMessage(msg)
             ),
         )
@@ -105,12 +105,14 @@ class _ChatMessageList(ft.ListView):
         if len(self.controls) > 0 and isinstance(self.controls[-1], InprogressMessage):
             self.controls.pop()
 
-        self.controls.extend([self._item_builder(m) for m in messages])
+        self.controller.add_new_message(
+            self.controls, [self._item_builder(m) for m in messages]
+        )
         if self.controls[-1].message.role.name == config.APP_ROLE_NAME:
             self.update()
             return
 
-        self.controller.append_new_message(
+        self.controller.add_new_message(
             self.controls, InprogressMessage("Agent is typing...")
         )
 
@@ -143,9 +145,8 @@ class ChatMessageDisplayContainer(ft.Container):
 
         self.pubsub = page.pubsub
 
-        # self.border = ft.border.all(1, ft.Colors.OUTLINE)
-        self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
         self.border_radius = 5
-        self.padding = ft.padding.only(left=15, right=20, top=0, bottom=0)
         self.expand = True
+        self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
+        self.padding = ft.padding.only(left=15, right=20, top=0, bottom=0)
         self.content = _ChatMessageList(page)
