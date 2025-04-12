@@ -60,10 +60,11 @@ class ClaudeAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Claude...")
 
         request_body = [self._construct_request(m) for m in messages]
+        logger.debug(f"Request body: {request_body}")
         chat_completion = self.client.messages.create(
             messages=request_body,
             model=self.model,
@@ -74,7 +75,7 @@ class ClaudeAgent:
             logger.error("Claude returned None")
             return ""
 
-        return [content]
+        return content
 
     def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
         request_body = [self._construct_request(m) for m in messages]

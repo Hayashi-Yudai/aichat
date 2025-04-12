@@ -55,7 +55,7 @@ class GeminiAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Google Gemini...")
 
         request_body = [self._construct_request(m) for m in messages]
@@ -63,7 +63,7 @@ class GeminiAgent:
             model=self.model, contents=request_body
         ).text
 
-        return [content]
+        return content
 
     def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
         logger.info("Sending message to Google Gemini with streaming...")

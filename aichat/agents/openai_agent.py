@@ -58,7 +58,7 @@ class OpenAIAgent:
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to OpenAI...")
 
         request_body = [self._construct_request(m) for m in messages]
@@ -71,7 +71,7 @@ class OpenAIAgent:
             logger.error("OpenAI returned None")
             return ""
 
-        return [content]
+        return content
 
     def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
         logger.info("Sending message to OpenAI...")
