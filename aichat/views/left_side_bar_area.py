@@ -25,7 +25,7 @@ class NewChatButton(ft.IconButton):
         self.on_click = self.on_click_func
 
     def on_click_func(self, e: ft.ControlEvent):
-        self.state_dict.set("chat_id", str(uuid.uuid4()), topic=Topics.NEW_CHAT)
+        self.state_dict["chat_id"].set(str(uuid.uuid4()))
 
 
 class ModelSelector(ft.Dropdown):
@@ -66,9 +66,7 @@ class PastChatItem(ft.ListTile):
         self.leading = ft.Icon(ft.Icons.NOTES_ROUNDED, color=ft.Colors.WHITE70, size=13)
         self.title = ft.Text(text[:16], color=ft.Colors.WHITE, size=13)
         self.dense = (True,)
-        self.on_click = lambda _: state_dict.set(
-            "chat_id", str(chat_id), topic=Topics.PAST_CHAT_RESTORED
-        )
+        self.on_click = lambda _: state_dict["chat_id"].set(str(chat_id))
         self.on_hover = self.on_hover_func
 
     def on_hover_func(self, e: ft.HoverEvent):
