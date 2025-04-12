@@ -4,6 +4,7 @@ from typing import Any, Protocol, Generator
 import flet as ft
 from loguru import logger
 
+import config
 from topics import Topics
 from models.message import Message
 from models.role import Role
@@ -32,6 +33,9 @@ class AgentController:
         )
 
     def recieve_message(self, topic: Topics, messages: list[Message]):
+        if messages[-1].role.name != config.USER_NAME:
+            return
+
         logger.info(f"{self.__class__.__name__}: Request to agent...")
 
         agent: Agent = self.page.session.get("agent")

@@ -2,7 +2,6 @@ from typing import Callable
 
 import flet as ft
 
-import config
 from topics import Topics
 from models.message import Message
 
@@ -26,23 +25,13 @@ class ChatDisplayController:
         self.update_content_callback([])
 
     def add_new_message(self, controls: list[ft.Row], message: Message | list[Message]):
-        if isinstance(message, list):
-            need_agent_request = (
-                message[-1].role.avatar_color == config.USER_AVATAR_COLOR
-            )
+        message = message if isinstance(message, list) else [message]
+        new_controls = controls + [self.item_builder(m) for m in message]
+        self.update_content_callback(new_controls)
 
-            msg = [self.item_builder(m) for m in message]
-            new_control = controls + msg
-            self.update_content_callback(new_control)
-        else:
-            need_agent_request = message.role.avatar_color == config.USER_AVATAR_COLOR
-
-            new_control = controls + [self.item_builder(message)]
-            self.update_content_callback(new_control)
-
-        if need_agent_request:
-            messages = [ctl.message for ctl in new_control]
-            self.page.pubsub.send_all_on_topic(Topics.REQUEST_TO_AGENT, messages)
+        self.page.pubsub.send_all_on_topic(
+            Topics.REQUEST_TO_AGENT, [ctl.message for ctl in new_controls]
+        )
 
         self.page.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
 
