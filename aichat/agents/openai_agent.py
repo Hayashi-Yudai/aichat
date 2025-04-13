@@ -5,7 +5,8 @@ from typing import Any, AsyncGenerator
 from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
-from mcp import ClientSession  # Added import for type hint
+
+# ClientSession import is fully removed now
 
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
@@ -65,15 +66,16 @@ class OpenAIAgent:
         openai_messages = [self._construct_request(m) for m in messages]
         final_text_parts = []
         call_count = 0
-        session = None
+        # session = None # No longer needed
 
         async with AsyncExitStack() as exit_stack:
-            session = None  # Initialize session to None
+            # session = None # No longer needed
             available_tools = []  # Initialize available_tools
             # Use McpHandler to connect and get tools
             if self.mcp_handler:
-                session = await self.mcp_handler.connect(exit_stack)
-                mcp_tools = await self.mcp_handler.list_tools(session)
+                # Connect but don't store the return value
+                await self.mcp_handler.connect(exit_stack)
+                mcp_tools = await self.mcp_handler.list_tools()
                 available_tools = self.mcp_handler.format_tools_for_openai(mcp_tools)
             else:
                 logger.warning("McpHandler not provided, tool use disabled.")
@@ -101,10 +103,9 @@ class OpenAIAgent:
                     logger.info(
                         f"Received {len(response_message.tool_calls)} tool call(s)."
                     )
-                    if not session or not self.mcp_handler:
-                        logger.error(
-                            "MCP session or handler not available for tool call."
-                        )
+                    # Check only for handler availability
+                    if not self.mcp_handler:
+                        logger.error("MCP handler not available for tool call.")
                         tool_results = [
                             {
                                 "role": "tool",
@@ -118,13 +119,18 @@ class OpenAIAgent:
                     else:
                         tool_results = []
                         for tool_call in response_message.tool_calls:
-                            tool_name = tool_call.function.name
+                            # Convert OpenAI tool name back to MCP format before calling
+                            openai_tool_name = tool_call.function.name
+                            mcp_tool_name = openai_tool_name.replace("__", "/")
                             tool_args_str = tool_call.function.arguments
                             tool_call_id = tool_call.id
-                            # Use McpHandler to call the tool
+                            logger.info(
+                                f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
+                            )
+                            # Use McpHandler to call the tool with the original name
                             tool_result = await self.mcp_handler.call_tool(
-                                session,
-                                tool_name,
+                                # session, # McpHandler.call_tool no longer needs session
+                                mcp_tool_name,  # Use converted name
                                 tool_args_str,
                                 tool_call_id,
                             )
@@ -179,7 +185,7 @@ class OpenAIAgent:
 
     async def _continue_stream(
         self,
-        session: ClientSession | None,  # Session can be None if handler is None
+        # session parameter fully removed
         messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
         mcp_handler: McpHandler | None,  # Pass McpHandler explicitly
@@ -236,11 +242,12 @@ class OpenAIAgent:
                 logger.info(f"Stream finished with reason: {finish_reason}")
                 if finish_reason == "tool_calls":
                     logger.info("Processing tool calls after stream finished.")
-                    if not session or not mcp_handler:  # Check handler too
+                    # Check only for mcp_handler availability (already correct here)
+                    if not mcp_handler:
                         logger.error(
-                            "MCP session or handler not available for tool call processing in stream."
+                            "MCP handler not available for tool call processing in stream."
                         )
-                        yield "\n[Error: Tool call processing failed - MCP handler/session unavailable]"
+                        yield "\n[Error: Tool call processing failed - MCP handler unavailable]"
                         # Decide how to proceed. Let's stop the stream here.
                         return
 
@@ -288,17 +295,24 @@ class OpenAIAgent:
                             )
                             continue  # Skip this malformed tool call
 
-                        tool_name = tool_call_start.function.name
+                        # Convert OpenAI tool name back to MCP format before calling
+                        # Convert OpenAI tool name back to MCP format before calling
+                        openai_tool_name = tool_call_start.function.name
+                        mcp_tool_name = openai_tool_name.replace("__", "/")
                         full_args_str = current_tool_args_str.get(index, "")
-                        exec_log = f"Executing tool call [{index}]: {tool_name}, ID: {tool_call_id}"
+                        # Break down log message
+                        exec_log = (
+                            f"Executing tool call [{index}]: {openai_tool_name} "
+                            f"(as {mcp_tool_name}), ID: {tool_call_id}"
+                        )
                         args_log = f"Args: {full_args_str}"
                         logger.info(exec_log)
                         logger.info(args_log)
 
-                        # Use McpHandler to call the tool
+                        # Use McpHandler to call the tool with the original name
                         tool_result = await mcp_handler.call_tool(
-                            session,
-                            tool_name,
+                            # session, # McpHandler.call_tool no longer needs session
+                            mcp_tool_name,  # Use converted name
                             full_args_str,
                             tool_call_id,
                         )
@@ -312,8 +326,9 @@ class OpenAIAgent:
                     if tool_results_for_next_call:
                         messages.extend(tool_results_for_next_call)
                         logger.info("Continuing stream recursively after tool calls...")
+                        # Call without session parameter
                         async for chunk in self._continue_stream(
-                            session, messages, available_tools, mcp_handler
+                            messages, available_tools, mcp_handler
                         ):
                             yield chunk
                     else:
@@ -342,15 +357,15 @@ class OpenAIAgent:
         """Initiates the streaming request with MCP support."""
         logger.info("Starting streaming request with OpenAI and MCP support...")
         openai_messages = [self._construct_request(m) for m in messages]
-        session = None
         available_tools = []
 
         async with AsyncExitStack() as exit_stack:
             try:
                 # Use McpHandler to connect and get tools
                 if self.mcp_handler:
-                    session = await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    # Connect but don't store the return value
+                    await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools()
                     available_tools = self.mcp_handler.format_tools_for_openai(
                         mcp_tools
                     )
@@ -360,8 +375,9 @@ class OpenAIAgent:
                     )
 
                 # Start the potentially recursive streaming process, passing handler
+                # Call without session parameter
                 async for chunk in self._continue_stream(
-                    session, openai_messages, available_tools, self.mcp_handler
+                    openai_messages, available_tools, self.mcp_handler
                 ):
                     yield chunk
 
