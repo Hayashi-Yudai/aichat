@@ -37,11 +37,21 @@ class McpHandler:
             An active ClientSession.
         """
         logger.info(f"Connecting to MCP server: {self.server_script_path}...")
-        command = "python"  # Assuming python execution
+        # command = "python"  # Assuming python execution
+        # server_params = StdioServerParameters(
+        #     command=command,
+        #     args=[str(self.server_script_path)],
+        #     env=None,  # Pass environment variables if needed
+        # )
         server_params = StdioServerParameters(
-            command=command,
-            args=[str(self.server_script_path)],
-            env=None,  # Pass environment variables if needed
+            command="npx",
+            args=[
+                "-y",
+                "@modelcontextprotocol/server-filesystem",
+                "/Users/yudaihayashi/Desktop",
+                "/Users/yudaihayashi/Documents/my_repo",
+                "/Users/yudaihayashi/.Trash",
+            ],
         )
         # Ensure stdio_client and ClientSession are managed by the provided exit_stack
         stdio_transport = await exit_stack.enter_async_context(

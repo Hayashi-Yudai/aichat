@@ -80,6 +80,7 @@ class OpenAIAgent:
 
             while call_count < config.MAX_REQUEST_COUNT:
                 logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
+                logger.debug(f"OpenAI messages: {openai_messages}")
                 chat_completion = await self.client.chat.completions.create(
                     messages=openai_messages,
                     model=self.model,
@@ -128,7 +129,13 @@ class OpenAIAgent:
                                 tool_args_str,
                                 tool_call_id,
                             )
-                            tool_results.append(tool_result)
+
+                            tool_result_formatted = {
+                                "role": "tool",
+                                "tool_call_id": tool_call_id,
+                                "content": tool_result.get("content", ""),
+                            }
+                            tool_results.append(tool_result_formatted)
 
                         openai_messages.extend(tool_results)
                     call_count += 1
@@ -296,7 +303,12 @@ class OpenAIAgent:
                             full_args_str,
                             tool_call_id,
                         )
-                        tool_results_for_next_call.append(tool_result)
+                        tool_result_formatted = {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": tool_result.get("content", ""),
+                        }
+                        tool_results_for_next_call.append(tool_result_formatted)
 
                     if tool_results_for_next_call:
                         messages.extend(tool_results_for_next_call)
