@@ -11,21 +11,6 @@ from mcp.client.stdio import stdio_client
 class McpHandler:
     """Handles interactions with an MCP server."""
 
-    def __init__(self, server_script_path: str | Path):
-        """
-        Initializes the McpHandler.
-
-        Args:
-            server_script_path: Path to the MCP server script (e.g., weather.py).
-        """
-        self.server_script_path = Path(server_script_path)
-        if not self.server_script_path.is_absolute():
-            # Assuming the script is relative to this handler file's directory
-            # Adjust if the assumption is different
-            self.server_script_path = (
-                Path(__file__).parent / self.server_script_path
-            ).resolve()
-
     async def connect(self, exit_stack: AsyncExitStack) -> ClientSession:
         """
         Connects to the MCP server using a provided AsyncExitStack.
@@ -36,23 +21,10 @@ class McpHandler:
         Returns:
             An active ClientSession.
         """
-        logger.info(f"Connecting to MCP server: {self.server_script_path}...")
-        # command = "python"  # Assuming python execution
-        # server_params = StdioServerParameters(
-        #     command=command,
-        #     args=[str(self.server_script_path)],
-        #     env=None,  # Pass environment variables if needed
-        # )
-        server_params = StdioServerParameters(
-            command="npx",
-            args=[
-                "-y",
-                "@modelcontextprotocol/server-filesystem",
-                "/Users/yudaihayashi/Desktop",
-                "/Users/yudaihayashi/Documents/my_repo",
-                "/Users/yudaihayashi/.Trash",
-            ],
-        )
+        with open(Path(__file__).parent / "servers.json") as f:
+            servers_info = json.load(f)
+
+        server_params = StdioServerParameters(**servers_info["filesystem"])
         # Ensure stdio_client and ClientSession are managed by the provided exit_stack
         stdio_transport = await exit_stack.enter_async_context(
             stdio_client(server_params)

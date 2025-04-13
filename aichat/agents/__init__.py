@@ -1,6 +1,5 @@
-import itertools  # Keep only one import
+import itertools
 from enum import StrEnum
-from pathlib import Path  # Added Path import
 
 from .agent import Agent
 from .mcp_handler import McpHandler  # Added McpHandler import
@@ -30,8 +29,7 @@ all_models = list(
 # Define the path to the MCP server script relative to this __init__.py
 # This assumes a single, shared MCP handler instance for all agents needing it.
 # If different agents need different handlers, this logic needs adjustment.
-_mcp_server_script = Path(__file__).parent / "mcp_servers/weather.py"
-_mcp_handler_instance = McpHandler(server_script_path=_mcp_server_script)
+_mcp_handler_instance = McpHandler()
 
 
 def get_agent_by_model(model: StrEnum) -> Agent:
