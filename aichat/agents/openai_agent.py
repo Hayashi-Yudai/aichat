@@ -1,5 +1,4 @@
 from enum import StrEnum
-import json
 import os
 
 # Removed unused pathlib.Path
@@ -51,24 +50,6 @@ class OpenAIAgent:
             else "user"
         )
 
-        # Handle tool call results (represented as user messages in our model)
-        if message.content_type == ContentType.TOOL_RESULT:
-            # OpenAI expects tool results with role 'tool'
-            return {
-                "role": "tool",
-                "tool_call_id": message.tool_call_id,
-                "content": message.system_content,  # The result content
-            }
-        # Handle tool calls made by the assistant
-        elif message.content_type == ContentType.TOOL_CALL:
-            return {
-                "role": "assistant",
-                "tool_calls": json.loads(
-                    message.system_content
-                ),  # Assuming tool calls are stored as JSON string
-            }
-
-        # Handle regular text and image messages
         request: dict[str, Any] = {"role": role}
         if message.content_type == ContentType.TEXT:
             request["content"] = message.system_content
