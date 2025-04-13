@@ -18,6 +18,9 @@ class ContentType(StrEnum):
     PNG = "png"
     JPEG = "jpeg"
 
+    TOOL_RESULT = "tool_result"
+    TOOL_CALL = "tool_call"
+
 
 @dataclass
 class Message:

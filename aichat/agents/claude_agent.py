@@ -37,12 +37,11 @@ class ClaudeAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = True  # Streaming with MCP is now supported
+        self.streamable = True
 
         self.client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY")
         )
-        # No persistent session or exit_stack stored on the instance
 
     async def connect_to_mcp_server(
         self, exit_stack: AsyncExitStack
@@ -132,10 +131,7 @@ class ClaudeAgent:
                 current_tool_use_id: str | None = None
                 current_tool_name: str | None = None
                 current_tool_input_chunks: list[str] = []
-                assistant_message_content: list[dict] = (
-                    []
-                )  # To build the assistant message
-                # ---
+                assistant_message_content: list[dict] = []
 
                 async for event in stream:
                     if event.type == "content_block_start":
@@ -318,10 +314,7 @@ class ClaudeAgent:
                     {
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
-                        "content": (
-                            result.content if result.content else ""
-                        ),  # Ensure content is string
-                        # "is_error": result.is_error, # Remove is_error access
+                        "content": (result.content if result.content else ""),
                     }
                 ],
             }
