@@ -14,3 +14,6 @@ AGENT_NAME = "Agent"
 AGENT_AVATAR_COLOR = ft.Colors.BLUE
 APP_ROLE_NAME = "App"
 APP_ROLE_AVATAR_COLOR = ft.Colors.GREY
+
+# For tool use
+MAX_REQUEST_COUNT = 5

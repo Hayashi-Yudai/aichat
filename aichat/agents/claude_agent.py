@@ -118,40 +118,45 @@ class ClaudeAgent:
 
             final_text = []
             assistant_message_content = []
-            for content in response.content:
-                if content.type == "text":
-                    logger.info("Received text response")
-                    final_text.append(content.text)
-                    assistant_message_content.append(content)
-                elif content.type == "tool_use":
-                    tool_name = content.name
-                    tool_args = content.input
-                    result = await self.session.call_tool(tool_name, tool_args)
-                    logger.info(f"Calling tool {tool_name} with args {tool_args}")
+            call_count = 0
+            while call_count < config.MAX_REQUEST_COUNT:
+                for content in response.content:
+                    if content.type == "text":
+                        logger.info("Received text response")
+                        final_text.append(content.text)
+                        assistant_message_content.append(content)
+                    elif content.type == "tool_use":
+                        tool_name = content.name
+                        tool_args = content.input
+                        result = await self.session.call_tool(tool_name, tool_args)
+                        logger.info(f"Calling tool {tool_name} with args {tool_args}")
 
-                    assistant_message_content.append(content)
-                    request_body.append(
-                        {"role": "assistant", "content": assistant_message_content}
-                    )
-                    request_body.append(
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": content.id,
-                                    "content": result.content,
-                                }
-                            ],
-                        }
-                    )
-                    response = self.client.messages.create(
-                        model=self.model,
-                        max_tokens=2048,
-                        messages=request_body,
-                        tools=available_tools,
-                    )
-                    final_text.append(response.content[0].text)
+                        assistant_message_content.append(content)
+                        request_body.append(
+                            {"role": "assistant", "content": assistant_message_content}
+                        )
+                        request_body.append(
+                            {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": content.id,
+                                        "content": result.content,
+                                    }
+                                ],
+                            }
+                        )
+                        response = self.client.messages.create(
+                            model=self.model,
+                            max_tokens=2048,
+                            messages=request_body,
+                            tools=available_tools,
+                        )
+                        final_text.append(response.content[0].text)
+                call_count += 1
+                if response.stop_reason in ["end_turn", "max_tokens"]:
+                    break
         finally:
             await self.cleanup()
 
