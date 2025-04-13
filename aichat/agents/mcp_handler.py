@@ -1,13 +1,11 @@
 import json
 from pathlib import Path
-from typing import Any  # Removed AsyncGenerator
+from typing import Any
 from contextlib import AsyncExitStack
 
 from loguru import logger
-from mcp import ClientSession, StdioServerParameters, Tool  # Corrected Tool import
+from mcp import ClientSession, StdioServerParameters, Tool
 from mcp.client.stdio import stdio_client
-
-# Removed incorrect Tool import
 
 
 class McpHandler:
