@@ -1,14 +1,17 @@
 from enum import StrEnum
-import json  # Import standard json module
+import json
 import os
-from pathlib import Path
+
+# Removed Path import
 from typing import Any, AsyncGenerator, cast
 
 from loguru import logger
 import anthropic
 from contextlib import AsyncExitStack
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
+
+# Removed MCP client imports, added McpHandler and ClientSession (for type hint)
+from mcp import ClientSession
+from .mcp_handler import McpHandler
 from anthropic.types import (
     Message as AnthropicMessage,
     ToolUseBlock,
@@ -30,52 +33,22 @@ class ClaudeModel(StrEnum):
 
 
 class ClaudeAgent:
-    MAX_TOKENS = 2048  # Define max_tokens as a class variable
+    MAX_TOKENS = 2048
 
-    def __init__(self, model: ClaudeModel):
+    def __init__(
+        self, model: ClaudeModel, mcp_handler: McpHandler
+    ):  # Added mcp_handler
         self.model = model
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
         self.streamable = True
-
         self.client = anthropic.AsyncAnthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY")
         )
+        self.mcp_handler = mcp_handler  # Store McpHandler instance
 
-    async def connect_to_mcp_server(
-        self, exit_stack: AsyncExitStack
-    ) -> tuple[ClientSession, list[dict[str, Any]]]:
-        """Connects to the MCP server using a provided AsyncExitStack."""
-        logger.info("Connecting to MCP server...")
-        command = "python"
-        server_params = StdioServerParameters(
-            command=command,
-            args=[str(Path(__file__).parent / "mcp_servers/weather.py")],
-            env=None,
-        )
-        # Ensure stdio_client and ClientSession are managed by the provided exit_stack
-        stdio_transport = await exit_stack.enter_async_context(
-            stdio_client(server_params)
-        )
-        stdio, write = stdio_transport
-        session = await exit_stack.enter_async_context(ClientSession(stdio, write))
-
-        await session.initialize()
-
-        # List available tools
-        response = await session.list_tools()
-        tools = response.tools
-        logger.info(f"Connected to server with tools: {[tool.name for tool in tools]}")
-        available_tools = [
-            {
-                "name": tool.name,
-                "description": tool.description,
-                "input_schema": tool.inputSchema,
-            }
-            for tool in tools
-        ]
-        return session, available_tools
+    # Removed connect_to_mcp_server method
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         request = {
@@ -114,9 +87,10 @@ class ClaudeAgent:
 
     async def _continue_stream(
         self,
-        session: ClientSession,  # Pass session explicitly
+        session: ClientSession | None,  # Session can be None
         messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
+        mcp_handler: McpHandler | None,  # Pass McpHandler explicitly
     ) -> AsyncGenerator[str, None]:
         """Helper function to continue the stream after a tool call."""
         logger.info(f"Continuing stream with {len(messages)} messages.")
@@ -184,9 +158,8 @@ class ClaudeAgent:
                                 )
                             )
                             try:
-                                tool_input = json.loads(
-                                    full_tool_input_str
-                                )  # Use standard json.loads
+                                # tool_input is already parsed by Claude, it's a dict
+                                tool_input = json.loads(full_tool_input_str)
 
                                 # Update the tool_use block in assistant message content
                                 for block in assistant_message_content:
@@ -194,21 +167,28 @@ class ClaudeAgent:
                                         block["input"] = tool_input
                                         break
 
-                                if not session:  # Check passed session
-                                    raise RuntimeError(
-                                        "MCP session lost during streaming continuation."
+                                if not session or not mcp_handler:  # Check handler too
+                                    logger.error(
+                                        "MCP session or handler not available for tool call processing in stream."
                                     )
+                                    yield "\n[Error: Tool call processing failed - MCP handler/session unavailable]"
+                                    return
+
                                 logger.info(
                                     f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
                                 )
-                                tool_result = (
-                                    await session.call_tool(  # Use passed session
-                                        current_tool_name, tool_input
-                                    )
+                                # Use McpHandler to call the tool
+                                tool_result_data = await mcp_handler.call_tool(
+                                    session,
+                                    current_tool_name,
+                                    tool_input,  # Pass dict directly
+                                    current_tool_use_id,
                                 )
-                                logger.info(
-                                    f"Tool {current_tool_name} result received (continue)."
+                                log_msg = (  # Break long log message
+                                    f"Tool {current_tool_name} result received (continue). "
+                                    f"Is error: {tool_result_data['is_error']}"
                                 )
+                                logger.info(log_msg)
 
                                 # Append messages for the *next* recursive call
                                 messages.append(
@@ -217,18 +197,19 @@ class ClaudeAgent:
                                         "content": assistant_message_content,
                                     }
                                 )
+                                # Construct tool_result message using data from McpHandler
                                 tool_result_message = {
                                     "role": "user",
                                     "content": [
                                         {
                                             "type": "tool_result",
                                             "tool_use_id": current_tool_use_id,
-                                            "content": (
-                                                tool_result.content
-                                                if tool_result.content
-                                                else ""
-                                            ),
-                                            # "is_error": tool_result.is_error, # Remove is_error access
+                                            "content": tool_result_data[
+                                                "content"
+                                            ],  # Use content from result
+                                            "is_error": tool_result_data[
+                                                "is_error"
+                                            ],  # Include is_error if needed by Claude
                                         }
                                     ],
                                 }
@@ -240,12 +221,15 @@ class ClaudeAgent:
                                 current_tool_input_chunks = []
                                 assistant_message_content = []
 
-                                # Recursive call, passing the session along
+                                # Recursive call, passing the session and handler along
                                 logger.info(
                                     "Continuing stream again after tool call..."
                                 )
                                 async for chunk in self._continue_stream(
-                                    session, messages, available_tools  # Pass session
+                                    session,
+                                    messages,
+                                    available_tools,
+                                    mcp_handler,  # Pass handler
                                 ):
                                     yield chunk
                                 return  # Exit this stream branch
@@ -274,39 +258,79 @@ class ClaudeAgent:
 
     async def _handle_tool_use(
         self,
-        session: ClientSession,  # Add session parameter
+        session: ClientSession | None,  # Session can be None
+        mcp_handler: McpHandler | None,  # Pass McpHandler
         tool_use: ToolUseBlock,
         claude_messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
     ) -> AnthropicMessage:
         """Handles a tool use request from Claude (non-streaming)."""
         tool_name = tool_use.name
-        tool_args = tool_use.input
+        tool_args = tool_use.input  # Claude provides args as dict
         tool_use_id = tool_use.id
         logger.info(f"Calling tool {tool_name} with args {tool_args}")
 
-        # Use the passed session directly
-        if not session:
-            raise RuntimeError(
-                "MCP session is required but was not provided to _handle_tool_use."
+        if not session or not mcp_handler:
+            logger.error(
+                "MCP session or handler not available for tool call in _handle_tool_use."
             )
+            # Need to construct an error response to send back to Claude
+            claude_messages.append(
+                {"role": "assistant", "content": [tool_use.model_dump()]}
+            )
+            claude_messages.append(
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": tool_use_id,
+                            "content": "Error: MCP handler/session not available.",
+                            "is_error": True,
+                        }
+                    ],
+                }
+            )
+            # Call Claude again with the error message
+            response = await self.client.messages.create(
+                model=self.model,
+                max_tokens=self.MAX_TOKENS,
+                messages=claude_messages,
+                tools=available_tools,
+            )
+            return response
 
-        result = await session.call_tool(tool_name, tool_args)  # Use passed session
-        logger.info(f"Tool {tool_name} executed. Result is_error={result.is_error}")
+        # Use McpHandler to call the tool
+        result_data = await mcp_handler.call_tool(
+            session, tool_name, tool_args, tool_use_id
+        )
+        logger.info(f"Tool {tool_name} executed. Is error={result_data['is_error']}")
 
         # Append the assistant's tool use message and the user's tool result message
         if claude_messages and claude_messages[-1]["role"] == "assistant":
-            content = claude_messages[-1].get("content", [])
+            # Ensure the current assistant message has the tool_use block
+            current_content = claude_messages[-1].get("content", [])
+            if not isinstance(
+                current_content, list
+            ):  # Handle potential non-list content
+                logger.warning(
+                    f"Expected list content for assistant message, got {type(current_content)}. Resetting."
+                )
+                current_content = []
+                claude_messages[-1]["content"] = current_content
+
             if not any(
                 c.get("type") == "tool_use" and c.get("id") == tool_use_id
-                for c in content
+                for c in current_content
             ):
-                content.append(tool_use.model_dump())
+                current_content.append(tool_use.model_dump())
         else:
+            # If last message wasn't assistant or no messages, add new assistant message
             claude_messages.append(
                 {"role": "assistant", "content": [tool_use.model_dump()]}
             )
 
+        # Append the tool result message using data from McpHandler
         claude_messages.append(
             {
                 "role": "user",
@@ -314,7 +338,8 @@ class ClaudeAgent:
                     {
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
-                        "content": (result.content if result.content else ""),
+                        "content": result_data["content"],
+                        "is_error": result_data["is_error"],  # Include is_error
                     }
                 ],
             }
@@ -340,9 +365,19 @@ class ClaudeAgent:
 
         # Use a local AsyncExitStack for this request
         async with AsyncExitStack() as exit_stack:
+            session = None  # Initialize session
+            available_tools = []  # Initialize tools
             try:
-                # Connect to MCP and get tools within the stack's context
-                session, available_tools = await self.connect_to_mcp_server(exit_stack)
+                # Use McpHandler to connect and get tools
+                if self.mcp_handler:
+                    session = await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    # Use the new Claude-specific formatting method
+                    available_tools = self.mcp_handler.format_tools_for_claude(
+                        mcp_tools
+                    )
+                else:
+                    logger.warning("McpHandler not provided, tool use disabled.")
 
                 logger.info("Sending initial message to Claude with tools...")
                 response = await self.client.messages.create(
@@ -384,15 +419,16 @@ class ClaudeAgent:
                                 }
                             )
 
-                            # Pass the current session to _handle_tool_use
+                            # Pass the current session and handler to _handle_tool_use
                             response = await self._handle_tool_use(
                                 session,
+                                self.mcp_handler,  # Pass handler
                                 tool_use_block,
                                 claude_messages,
                                 available_tools,
                             )
                             tool_use_occurred = True
-                            break
+                            break  # Break inner loop to process new response
                     else:
                         if assistant_responses_content:
                             claude_messages.append(
@@ -488,13 +524,28 @@ class ClaudeAgent:
 
         # Use a local AsyncExitStack for this streaming request
         async with AsyncExitStack() as exit_stack:
+            session = None  # Initialize session
+            available_tools = []  # Initialize tools
             try:
-                # Connect to MCP within the stack's context
-                session, available_tools = await self.connect_to_mcp_server(exit_stack)
+                # Use McpHandler to connect and get tools
+                if self.mcp_handler:
+                    session = await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    # Use the new Claude-specific formatting method
+                    available_tools = self.mcp_handler.format_tools_for_claude(
+                        mcp_tools
+                    )
+                else:
+                    logger.warning(
+                        "McpHandler not provided, tool use disabled for stream."
+                    )
 
-                # Initial stream call, passing the session
+                # Initial stream call, passing the session and handler
                 async for chunk in self._continue_stream(
-                    session, claude_messages, available_tools
+                    session,
+                    claude_messages,
+                    available_tools,
+                    self.mcp_handler,  # Pass handler
                 ):
                     yield chunk
 

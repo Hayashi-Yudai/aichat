@@ -1,19 +1,19 @@
 from enum import StrEnum
 import json
 import os
-from pathlib import Path
-from typing import Any, AsyncGenerator  # Removed cast
-from contextlib import AsyncExitStack
 
+# Removed unused pathlib.Path
+from typing import Any, AsyncGenerator
+from contextlib import AsyncExitStack
 from loguru import logger
-from openai import AsyncOpenAI  # Use AsyncOpenAI
+from openai import AsyncOpenAI
+from mcp import ClientSession  # Added import for type hint
 
 # Removed unused ChatCompletion types
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
+# Removed MCP client imports, added McpHandler import
+from .mcp_handler import McpHandler
 import config
 from models.role import Role
 from models.message import Message, ContentType
@@ -28,55 +28,20 @@ class OpenAIModel(StrEnum):
 
 
 class OpenAIAgent:
-    MAX_TOKENS = 2048  # Define max_tokens
+    MAX_TOKENS = 2048
 
-    def __init__(self, model: OpenAIModel):
+    def __init__(
+        self, model: OpenAIModel, mcp_handler: McpHandler
+    ):  # Added mcp_handler
         self.model = model
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
         self.streamable = True
-
-        # Use AsyncOpenAI client
         self.client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        self.mcp_handler = mcp_handler  # Store McpHandler instance
 
-    async def connect_to_mcp_server(
-        self, exit_stack: AsyncExitStack
-    ) -> tuple[ClientSession, list[dict[str, Any]]]:
-        """Connects to the MCP server using a provided AsyncExitStack."""
-        logger.info("Connecting to MCP server...")
-        command = "python"
-        server_params = StdioServerParameters(
-            command=command,
-            args=[str(Path(__file__).parent / "mcp_servers/weather.py")],
-            env=None,
-        )
-        # Ensure stdio_client and ClientSession are managed by the provided exit_stack
-        stdio_transport = await exit_stack.enter_async_context(
-            stdio_client(server_params)
-        )
-        stdio, write = stdio_transport
-        session = await exit_stack.enter_async_context(ClientSession(stdio, write))
-
-        await session.initialize()
-
-        # List available tools
-        response = await session.list_tools()
-        tools = response.tools
-        logger.info(f"Connected to server with tools: {[tool.name for tool in tools]}")
-        # OpenAI expects tools in a specific format
-        available_tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.inputSchema,
-                },
-            }
-            for tool in tools
-        ]
-        return session, available_tools
+    # Removed connect_to_mcp_server method
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         """Constructs the request dictionary for a single message."""
@@ -135,8 +100,18 @@ class OpenAIAgent:
         session = None
 
         async with AsyncExitStack() as exit_stack:
+            session = None  # Initialize session to None
+            available_tools = []  # Initialize available_tools
             try:
-                session, available_tools = await self.connect_to_mcp_server(exit_stack)
+                # Use McpHandler to connect and get tools
+                if self.mcp_handler:
+                    session = await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    available_tools = self.mcp_handler.format_tools_for_openai(
+                        mcp_tools
+                    )
+                else:
+                    logger.warning("McpHandler not provided, tool use disabled.")
 
                 while call_count < config.MAX_REQUEST_COUNT:
                     logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
@@ -163,63 +138,40 @@ class OpenAIAgent:
                         logger.info(
                             f"Received {len(response_message.tool_calls)} tool call(s)."
                         )
-                        if not session:
-                            raise RuntimeError(
-                                "MCP session not available for tool call."
+                        if not session or not self.mcp_handler:  # Check for handler too
+                            logger.error(
+                                "MCP session or handler not available for tool call."
                             )
+                            # Append error messages for each tool call requested
+                            tool_results = [
+                                {
+                                    "role": "tool",
+                                    "tool_call_id": tc.id,
+                                    "content": "Error: MCP handler/session not available.",
+                                }
+                                for tc in response_message.tool_calls
+                            ]
+                            openai_messages.extend(tool_results)
+                            # Decide whether to break or continue; let's break here
+                            # as tool execution failed fundamentally.
+                            break
+                        else:
+                            tool_results = []
+                            for tool_call in response_message.tool_calls:
+                                tool_name = tool_call.function.name
+                                tool_args_str = tool_call.function.arguments
+                                tool_call_id = tool_call.id
+                                # Use McpHandler to call the tool
+                                tool_result = await self.mcp_handler.call_tool(
+                                    session,
+                                    tool_name,
+                                    tool_args_str,
+                                    tool_call_id,
+                                )
+                                tool_results.append(tool_result)
 
-                        tool_results = []
-                        for tool_call in response_message.tool_calls:
-                            tool_name = tool_call.function.name
-                            tool_args_str = tool_call.function.arguments
-                            tool_call_id = tool_call.id
-                            logger.info(
-                                f"Processing tool call: {tool_name}, ID: {tool_call_id}"
-                            )
-                            try:
-                                tool_args = json.loads(tool_args_str)
-                                logger.info(
-                                    f"Calling MCP tool: {tool_name} with args: {tool_args}"
-                                )
-                                result = await session.call_tool(tool_name, tool_args)
-                                logger.info(
-                                    f"Tool {tool_name} executed. Result content available: {bool(result.content)}"
-                                )
-                                tool_results.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": (
-                                            result.content if result.content else ""
-                                        ),  # Ensure content is string
-                                    }
-                                )
-                            except json.JSONDecodeError:
-                                logger.error(
-                                    f"Failed to decode JSON arguments for tool {tool_name}: {tool_args_str}"
-                                )
-                                tool_results.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": f"Error: Invalid JSON arguments received: {tool_args_str}",
-                                    }
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"Error executing tool {tool_name}: {e}",
-                                    exc_info=True,
-                                )
-                                tool_results.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": f"Error executing tool {tool_name}: {e}",
-                                    }
-                                )
-
-                        # Append all tool results for the next API call
-                        openai_messages.extend(tool_results)
+                            # Append all tool results for the next API call
+                            openai_messages.extend(tool_results)
                         call_count += 1
                         continue  # Continue the loop to send results back to OpenAI
 
@@ -273,9 +225,10 @@ class OpenAIAgent:
 
     async def _continue_stream(
         self,
-        session: ClientSession,
+        session: ClientSession | None,  # Session can be None if handler is None
         messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
+        mcp_handler: McpHandler | None,  # Pass McpHandler explicitly
     ) -> AsyncGenerator[str, None]:
         """Helper function to manage streaming and tool calls with OpenAI."""
         logger.info(f"Starting/Continuing stream with {len(messages)} messages.")
@@ -330,10 +283,13 @@ class OpenAIAgent:
                     logger.info(f"Stream finished with reason: {finish_reason}")
                     if finish_reason == "tool_calls":
                         logger.info("Processing tool calls after stream finished.")
-                        if not session:
-                            raise RuntimeError(
-                                "MCP session not available for tool call."
+                        if not session or not mcp_handler:  # Check handler too
+                            logger.error(
+                                "MCP session or handler not available for tool call processing in stream."
                             )
+                            yield "\n[Error: Tool call processing failed - MCP handler/session unavailable]"
+                            # Decide how to proceed. Let's stop the stream here.
+                            return
 
                         # Construct the assistant message with completed tool calls
                         assistant_message_tool_calls = []
@@ -386,51 +342,19 @@ class OpenAIAgent:
                             # Explicitly format log message parts
                             exec_log = f"Executing tool call [{index}]: {tool_name}, ID: {tool_call_id}"
                             args_log = f"Args: {full_args_str}"
-                            logger.info(exec_log)
-                            logger.info(args_log)
+                            logger.info(exec_log)  # Corrected indentation
+                            logger.info(args_log)  # Corrected indentation
 
-                            try:
-                                tool_args = json.loads(full_args_str)
-                                result = await session.call_tool(tool_name, tool_args)
-                                # Split this log message too for safety
-                                exec_done_log = f"Tool {tool_name} executed."
-                                result_log = (
-                                    f"Result content available: {bool(result.content)}"
+                            # Use McpHandler to call the tool
+                            tool_result = (
+                                await mcp_handler.call_tool(  # Corrected indentation
+                                    session,
+                                    tool_name,
+                                    full_args_str,
+                                    tool_call_id,
                                 )
-                                logger.info(exec_done_log)
-                                logger.info(result_log)
-                                tool_results_for_next_call.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": (
-                                            result.content if result.content else ""
-                                        ),
-                                    }
-                                )
-                            except json.JSONDecodeError:
-                                logger.error(
-                                    f"Failed to decode JSON arguments for tool {tool_name}: {full_args_str}"
-                                )
-                                tool_results_for_next_call.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": f"Error: Invalid JSON arguments received: {full_args_str}",
-                                    }
-                                )
-                            except Exception as e:
-                                logger.error(
-                                    f"Error executing tool {tool_name}: {e}",
-                                    exc_info=True,
-                                )
-                                tool_results_for_next_call.append(
-                                    {
-                                        "role": "tool",
-                                        "tool_call_id": tool_call_id,
-                                        "content": f"Error executing tool {tool_name}: {e}",
-                                    }
-                                )
+                            )
+                            tool_results_for_next_call.append(tool_result)
 
                         # Append tool results and continue the stream recursively
                         if tool_results_for_next_call:
@@ -438,8 +362,9 @@ class OpenAIAgent:
                             logger.info(
                                 "Continuing stream recursively after tool calls..."
                             )
+                            # Pass mcp_handler in recursive call
                             async for chunk in self._continue_stream(
-                                session, messages, available_tools
+                                session, messages, available_tools, mcp_handler
                             ):
                                 yield chunk
                         else:
@@ -477,14 +402,25 @@ class OpenAIAgent:
         logger.info("Starting streaming request with OpenAI and MCP support...")
         openai_messages = [self._construct_request(m) for m in messages]
         session = None
+        available_tools = []
 
         async with AsyncExitStack() as exit_stack:
             try:
-                session, available_tools = await self.connect_to_mcp_server(exit_stack)
+                # Use McpHandler to connect and get tools
+                if self.mcp_handler:
+                    session = await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    available_tools = self.mcp_handler.format_tools_for_openai(
+                        mcp_tools
+                    )
+                else:
+                    logger.warning(
+                        "McpHandler not provided, tool use disabled for stream."
+                    )
 
-                # Start the potentially recursive streaming process
+                # Start the potentially recursive streaming process, passing handler
                 async for chunk in self._continue_stream(
-                    session, openai_messages, available_tools
+                    session, openai_messages, available_tools, self.mcp_handler
                 ):
                     yield chunk
 

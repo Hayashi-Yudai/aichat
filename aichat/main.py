@@ -2,9 +2,11 @@ import uuid
 
 import flet as ft
 from loguru import logger
+from pathlib import Path  # Added Path import
 
 from agents.agent import AgentController
 from agents.openai_agent import OpenAIAgent, OpenAIModel
+from agents.mcp_handler import McpHandler  # Added McpHandler import
 from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
 from views.left_side_bar_area import LeftSideBarArea
@@ -20,8 +22,12 @@ def main(page: ft.Page):
     )
     page.theme_mode = ft.ThemeMode.DARK
 
-    logger.debug("Initialize agent...")
-    agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
+    logger.debug("Initialize MCP Handler and agent...")
+    # Define the path to the MCP server script relative to main.py
+    mcp_server_script = Path(__file__).parent / "agents/mcp_servers/weather.py"
+    mcp_handler = McpHandler(server_script_path=mcp_server_script)
+    agent = OpenAIAgent(OpenAIModel.GPT4OMINI, mcp_handler=mcp_handler)  # Pass handler
+
     _ = AgentController(page=page)
 
     # Session Variables
