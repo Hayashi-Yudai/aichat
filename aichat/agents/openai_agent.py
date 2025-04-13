@@ -1,17 +1,14 @@
 from enum import StrEnum
 import os
 
-# Removed unused pathlib.Path
 from typing import Any, AsyncGenerator
 from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
 from mcp import ClientSession  # Added import for type hint
 
-# Removed unused ChatCompletion types
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
-# Removed MCP client imports, added McpHandler import
 from .mcp_handler import McpHandler
 import config
 from models.role import Role
@@ -44,31 +41,25 @@ class OpenAIAgent:
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         """Constructs the request dictionary for a single message."""
-        role = (
-            "assistant"
-            if message.role.avatar_color == config.AGENT_AVATAR_COLOR
-            else "user"
-        )
-
-        request: dict[str, Any] = {"role": role}
-        if message.content_type == ContentType.TEXT:
-            request["content"] = message.system_content
-        elif (
-            message.content_type == ContentType.PNG
-            or message.content_type == ContentType.JPEG
-        ):
-            request["content"] = [
-                {"type": "text", "text": message.display_content},
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": f"data:image/{message.content_type};base64,{message.system_content}"
+        request: dict[str, Any] = {
+            "role": ("assistant" if message.is_asistant_message() else "user")
+        }
+        match message.content_type:
+            case ContentType.TEXT:
+                request["content"] = message.system_content
+            case ContentType.PNG | ContentType.JPEG:
+                request["content"] = [
+                    {"type": "text", "text": message.display_content},
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/{message.content_type};base64,{message.system_content}"
+                        },
                     },
-                },
-            ]
-        else:
-            logger.error(f"Invalid or unhandled content type: {message.content_type}")
-            raise ValueError(f"Invalid content type: {message.content_type}")
+                ]
+            case ContentType.UNKNOWN:
+                logger.error(f"Invalid content type: {message.content_type}")
+                raise ValueError(f"Invalid content type: {message.content_type}")
 
         return request
 

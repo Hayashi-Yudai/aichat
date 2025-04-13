@@ -18,6 +18,8 @@ class ContentType(StrEnum):
     PNG = "png"
     JPEG = "jpeg"
 
+    UNKNOWN = "unknown"
+
 
 @dataclass
 class Message:
@@ -109,3 +111,6 @@ class Message:
         entities = db.get_all("message", condition=f"chat_id='{chat_id}'")
 
         return [cls.from_tuple(e) for e in entities]
+
+    def is_asistant_message(self):
+        return self.role.avatar_color == config.AGENT_AVATAR_COLOR

@@ -9,7 +9,6 @@ from loguru import logger
 import anthropic
 from contextlib import AsyncExitStack
 
-# Removed MCP client imports, added McpHandler and ClientSession (for type hint)
 from mcp import ClientSession
 from .mcp_handler import McpHandler
 from anthropic.types import (
@@ -51,37 +50,29 @@ class ClaudeAgent:
     # Removed connect_to_mcp_server method
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {
-            "role": (
-                "assistant"
-                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
-                else "user"
-            )
-        }
+        request = {"role": ("assistant" if message.is_asistant_message() else "user")}
 
-        if message.content_type == ContentType.TEXT:
-            request["content"] = [{"type": "text", "text": message.system_content}]
-        elif (
-            message.content_type == ContentType.PNG
-            or message.content_type == ContentType.JPEG
-        ):
-            request["content"] = [
-                {
-                    "type": "text",
-                    "text": message.display_content,
-                },
-                {
-                    "type": "image",
-                    "source": {
-                        "type": "base64",
-                        "media_type": f"image/{message.content_type}",
-                        "data": message.system_content,
+        match message.content_type:
+            case ContentType.TEXT:
+                request["content"] = [{"type": "text", "text": message.system_content}]
+            case ContentType.PNG | ContentType.JPEG:
+                request["content"] = [
+                    {
+                        "type": "text",
+                        "text": message.display_content,
                     },
-                },
-            ]
-        else:
-            logger.error(f"Invalid content type: {message.content_type}")
-            raise ValueError(f"Invalid content type: {message.content_type}")
+                    {
+                        "type": "image",
+                        "source": {
+                            "type": "base64",
+                            "media_type": f"image/{message.content_type}",
+                            "data": message.system_content,
+                        },
+                    },
+                ]
+            case ContentType.UNKNOWN:
+                logger.error(f"Invalid content type: {message.content_type}")
+                raise ValueError(f"Invalid content type: {message.content_type}")
 
         return request
 
