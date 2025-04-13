@@ -80,7 +80,6 @@ class OpenAIAgent:
 
             while call_count < config.MAX_REQUEST_COUNT:
                 logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
-                logger.debug(f"OpenAI messages: {openai_messages}")
                 chat_completion = await self.client.chat.completions.create(
                     messages=openai_messages,
                     model=self.model,
