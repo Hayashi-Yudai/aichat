@@ -6,7 +6,7 @@ from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk, ChoiceDelta
 from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
@@ -165,6 +165,23 @@ class OpenAIAgent:
         logger.info("Successfully received response from OpenAI.")
         return content_text
 
+    def _prepare_tool_calls(
+        self,
+        delta: ChoiceDelta,
+        tool_calls: list,
+        tool_args_str: list,
+    ) -> tuple[dict[int, ChoiceDeltaToolCall], dict[int, str]]:
+        for tool_call_chunk in delta.tool_calls:
+            index = tool_call_chunk.index
+            if index not in tool_calls:
+                tool_calls[index] = tool_call_chunk
+                tool_args_str[index] = ""
+            else:
+                if tool_call_chunk.function and tool_call_chunk.function.arguments:
+                    tool_args_str[index] += tool_call_chunk.function.arguments
+
+        return tool_calls, tool_args_str
+
     async def _continue_stream(
         self,
         messages: list[dict[str, Any]],
@@ -193,31 +210,21 @@ class OpenAIAgent:
                 yield delta.content
 
             if delta and delta.tool_calls:
-                for tool_call_chunk in delta.tool_calls:
-                    index = tool_call_chunk.index
-                    if index not in current_tool_calls:
-                        current_tool_calls[index] = tool_call_chunk
-                        current_tool_args_str[index] = ""
-                        tool_id = tool_call_chunk.id
-                        tool_func_name = (
-                            tool_call_chunk.function.name
-                            if tool_call_chunk.function
-                            else "N/A"
-                        )
-                        start_log = f"Tool call [{index}] started: ID {tool_id}, Name: {tool_func_name}"
-                        logger.info(start_log)
-                    else:
-                        if (
-                            tool_call_chunk.function
-                            and tool_call_chunk.function.arguments
-                        ):
-                            current_tool_args_str[
-                                index
-                            ] += tool_call_chunk.function.arguments
+                current_tool_calls, current_tool_args_str = self._prepare_tool_calls(
+                    delta, current_tool_calls, current_tool_args_str
+                )
 
             if finish_reason:
                 logger.info(f"Stream finished with reason: {finish_reason}")
-                if finish_reason == "tool_calls":
+
+                if finish_reason == "stop":
+                    logger.info("Stream finished normally.")
+                    return
+                elif finish_reason == "length":
+                    logger.warning("Stream finished due to max tokens.")
+                    yield "\n[Warning: Response truncated due to length limit]"
+                    return
+                elif finish_reason == "tool_calls":
                     logger.info("Processing tool calls after stream finished.")
                     if not mcp_handler:
                         logger.error(
@@ -228,19 +235,19 @@ class OpenAIAgent:
 
                     assistant_message_tool_calls = []
                     for index, tool_call_start in current_tool_calls.items():
-                        if tool_call_start.function:
-                            assistant_message_tool_calls.append(
-                                {
-                                    "id": tool_call_start.id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tool_call_start.function.name,
-                                        "arguments": current_tool_args_str.get(
-                                            index, ""
-                                        ),
-                                    },
-                                }
-                            )
+                        if not tool_call_start.function:
+                            continue
+
+                        assistant_message_tool_calls.append(
+                            {
+                                "id": tool_call_start.id,
+                                "type": "function",
+                                "function": {
+                                    "name": tool_call_start.function.name,
+                                    "arguments": current_tool_args_str.get(index, ""),
+                                },
+                            }
+                        )
 
                     if assistant_message_tool_calls:
                         messages.append(
@@ -302,14 +309,6 @@ class OpenAIAgent:
                             "Tool calls finished, but no results generated for next call."
                         )
 
-                    return
-
-                elif finish_reason == "stop":
-                    logger.info("Stream finished normally.")
-                    return
-                elif finish_reason == "length":
-                    logger.warning("Stream finished due to max tokens.")
-                    yield "\n[Warning: Response truncated due to length limit]"
                     return
                 else:
                     logger.warning(
