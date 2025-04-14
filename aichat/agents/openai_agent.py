@@ -5,6 +5,9 @@ from typing import Any, AsyncGenerator
 from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
+from openai._streaming import AsyncStream
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
+from openai.types.chat.chat_completion import ChatCompletion
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
 from .mcp_handler import McpHandler
@@ -86,8 +89,8 @@ class OpenAIAgent:
                     request_params["tools"] = available_tools
                     request_params["tool_choice"] = "auto"
 
-                chat_completion = await self.client.chat.completions.create(
-                    **request_params
+                chat_completion: ChatCompletion = (
+                    await self.client.chat.completions.create(**request_params)
                 )
                 response_message = chat_completion.choices[0].message
                 finish_reason = chat_completion.choices[0].finish_reason
@@ -173,12 +176,14 @@ class OpenAIAgent:
         current_tool_calls: dict[int, ChoiceDeltaToolCall] = {}
         current_tool_args_str: dict[int, str] = {}
 
-        stream = await self.client.chat.completions.create(
-            messages=messages,
-            model=self.model,
-            tools=available_tools,
-            tool_choice="auto",
-            stream=True,
+        stream: AsyncStream[ChatCompletionChunk] = (
+            await self.client.chat.completions.create(
+                messages=messages,
+                model=self.model,
+                tools=available_tools,
+                tool_choice="auto",
+                stream=True,
+            )
         )
         async for chunk in stream:
             delta = chunk.choices[0].delta
