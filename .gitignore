@@ -8,3 +8,4 @@ mise.toml
 *.db
 
 servers.json
+servers.json.tpl
