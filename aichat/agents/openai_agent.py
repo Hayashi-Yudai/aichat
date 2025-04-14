@@ -22,8 +22,6 @@ class OpenAIModel(StrEnum):
 
 
 class OpenAIAgent:
-    MAX_TOKENS = 2048
-
     def __init__(self, model: OpenAIModel, mcp_handler: McpHandler):
         self.model = model
         self.role = Role(
@@ -57,6 +55,19 @@ class OpenAIAgent:
 
         return request
 
+    async def _setup_mcp_handler(
+        self, exit_stack: AsyncExitStack
+    ) -> list[dict[str, Any]]:
+        """Sets up the MCP handler for tool calls."""
+        if self.mcp_handler:
+            await self.mcp_handler.connect(exit_stack)
+            mcp_tools = await self.mcp_handler.list_tools()
+            available_tools = self.mcp_handler.format_tools_for_openai(mcp_tools)
+            return available_tools
+        else:
+            logger.warning("McpHandler not provided, tool use disabled.")
+            return []
+
     async def request(self, messages: list[Message]) -> str:
         """Handles non-streaming requests with potential tool calls."""
         logger.info("Sending non-streaming message to OpenAI with MCP support...")
@@ -65,22 +76,18 @@ class OpenAIAgent:
         call_count = 0
 
         async with AsyncExitStack() as exit_stack:
-            available_tools = []
-            if self.mcp_handler:
-                await self.mcp_handler.connect(exit_stack)
-                mcp_tools = await self.mcp_handler.list_tools()
-                available_tools = self.mcp_handler.format_tools_for_openai(mcp_tools)
-            else:
-                logger.warning("McpHandler not provided, tool use disabled.")
+            available_tools = await self._setup_mcp_handler(exit_stack)
 
             while call_count < config.MAX_REQUEST_COUNT:
                 logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
+
+                request_params = {"messages": openai_messages, "model": self.model}
+                if len(available_tools) > 0:
+                    request_params["tools"] = available_tools
+                    request_params["tool_choice"] = "auto"
+
                 chat_completion = await self.client.chat.completions.create(
-                    messages=openai_messages,
-                    model=self.model,
-                    max_tokens=self.MAX_TOKENS,
-                    tools=available_tools,
-                    tool_choice="auto",
+                    **request_params
                 )
                 response_message = chat_completion.choices[0].message
                 finish_reason = chat_completion.choices[0].finish_reason
@@ -95,42 +102,30 @@ class OpenAIAgent:
                     logger.info(
                         f"Received {len(response_message.tool_calls)} tool call(s)."
                     )
-                    if not self.mcp_handler:
-                        logger.error("MCP handler not available for tool call.")
-                        tool_results = [
-                            {
-                                "role": "tool",
-                                "tool_call_id": tc.id,
-                                "content": "Error: MCP handler/session not available.",
-                            }
-                            for tc in response_message.tool_calls
-                        ]
-                        openai_messages.extend(tool_results)
-                        break
-                    else:
-                        tool_results = []
-                        for tool_call in response_message.tool_calls:
-                            openai_tool_name = tool_call.function.name
-                            mcp_tool_name = openai_tool_name.replace("__", "/")
-                            tool_args_str = tool_call.function.arguments
-                            tool_call_id = tool_call.id
-                            logger.info(
-                                f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
-                            )
-                            tool_result = await self.mcp_handler.call_tool(
-                                mcp_tool_name,
-                                tool_args_str,
-                                tool_call_id,
-                            )
 
-                            tool_result_formatted = {
-                                "role": "tool",
-                                "tool_call_id": tool_call_id,
-                                "content": tool_result.get("content", ""),
-                            }
-                            tool_results.append(tool_result_formatted)
+                    tool_results = []
+                    for tool_call in response_message.tool_calls:
+                        openai_tool_name = tool_call.function.name
+                        mcp_tool_name = openai_tool_name.replace("__", "/")
+                        tool_args_str = tool_call.function.arguments
+                        tool_call_id = tool_call.id
+                        logger.info(
+                            f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
+                        )
+                        tool_result = await self.mcp_handler.call_tool(
+                            mcp_tool_name,
+                            tool_args_str,
+                            tool_call_id,
+                        )
 
-                        openai_messages.extend(tool_results)
+                        tool_result_formatted = {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": tool_result.get("content", ""),
+                        }
+                        tool_results.append(tool_result_formatted)
+
+                    openai_messages.extend(tool_results)
                     call_count += 1
                     continue
 
@@ -181,7 +176,6 @@ class OpenAIAgent:
         stream = await self.client.chat.completions.create(
             messages=messages,
             model=self.model,
-            max_tokens=self.MAX_TOKENS,
             tools=available_tools,
             tool_choice="auto",
             stream=True,
@@ -327,30 +321,10 @@ class OpenAIAgent:
         available_tools = []
 
         async with AsyncExitStack() as exit_stack:
-            try:
-                if self.mcp_handler:
-                    await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools()
-                    available_tools = self.mcp_handler.format_tools_for_openai(
-                        mcp_tools
-                    )
-                else:
-                    logger.warning(
-                        "McpHandler not provided, tool use disabled for stream."
-                    )
+            available_tools = await self._setup_mcp_handler(exit_stack)
 
-                # Start the potentially recursive streaming process, passing handler
-                async for chunk in self._continue_stream(
-                    openai_messages, available_tools, self.mcp_handler
-                ):
-                    yield chunk
-
-            except Exception as e:
-                logger.error(
-                    f"Error setting up OpenAI streaming request: {e}", exc_info=True
-                )
-                yield f"\nAn error occurred setting up the stream: {e}"
-            finally:
-                logger.info(
-                    "Top-level streaming request finished or errored. Exit stack will close."
-                )
+            # Start the potentially recursive streaming process, passing handler
+            async for chunk in self._continue_stream(
+                openai_messages, available_tools, self.mcp_handler
+            ):
+                yield chunk
