@@ -5,9 +5,6 @@ from typing import Any, AsyncGenerator
 from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
-
-# ClientSession import is fully removed now
-
 from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
 from .mcp_handler import McpHandler
@@ -185,7 +182,6 @@ class OpenAIAgent:
 
     async def _continue_stream(
         self,
-        # session parameter fully removed
         messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
         mcp_handler: McpHandler | None,  # Pass McpHandler explicitly

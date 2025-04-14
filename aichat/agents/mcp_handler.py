@@ -150,7 +150,7 @@ class McpHandler:
         logger.info("Formatting tools for Claude...")
         formatted_tools = [
             {
-                "name": tool.name,
+                "name": tool.name.replace("/", "__"),
                 "description": tool.description,
                 "input_schema": tool.inputSchema,  # Claude uses 'input_schema'
             }
@@ -160,7 +160,6 @@ class McpHandler:
 
     async def call_tool(
         self,
-        # session: ClientSession, # Removed session argument
         name: str,  # Expected format: "server_name/tool_name"
         args: dict | str,
         tool_call_id: str | None = None,

@@ -9,7 +9,6 @@ from loguru import logger
 import anthropic
 from contextlib import AsyncExitStack
 
-from mcp import ClientSession
 from .mcp_handler import McpHandler
 from anthropic.types import (
     Message as AnthropicMessage,
@@ -78,190 +77,173 @@ class ClaudeAgent:
 
     async def _continue_stream(
         self,
-        session: ClientSession | None,  # Session can be None
         messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
         mcp_handler: McpHandler | None,  # Pass McpHandler explicitly
     ) -> AsyncGenerator[str, None]:
         """Helper function to continue the stream after a tool call."""
         logger.info(f"Continuing stream with {len(messages)} messages.")
-        try:
-            async with self.client.messages.stream(
-                messages=messages,
-                model=self.model,
-                max_tokens=self.MAX_TOKENS,
-                tools=available_tools,
-            ) as stream:
-                # --- State variables for tool use within stream ---
-                current_tool_use_id: str | None = None
-                current_tool_name: str | None = None
-                current_tool_input_chunks: list[str] = []
-                assistant_message_content: list[dict] = []
+        async with self.client.messages.stream(
+            messages=messages,
+            model=self.model,
+            max_tokens=self.MAX_TOKENS,
+            tools=available_tools,
+        ) as stream:
+            # --- State variables for tool use within stream ---
+            current_tool_use_id: str | None = None
+            current_tool_name: str | None = None
+            current_tool_input_chunks: list[str] = []
+            assistant_message_content: list[dict] = []
 
-                async for event in stream:
-                    if event.type == "content_block_start":
-                        event = cast(ContentBlockStartEvent, event)
-                        if event.content_block.type == "tool_use":
-                            logger.info(
-                                f"Tool use block started (continue): {event.content_block.name}"
+            async for event in stream:
+                if event.type == "content_block_start":
+                    event = cast(ContentBlockStartEvent, event)
+                    if event.content_block.type == "tool_use":
+                        logger.info(
+                            f"Tool use block started (continue): {event.content_block.name}"
+                        )
+                        current_tool_use_id = event.content_block.id
+                        current_tool_name = (
+                            event.content_block.name
+                        )  # .replace("__", "/")
+                        current_tool_input_chunks = []
+                        assistant_message_content.append(
+                            {
+                                "type": "tool_use",
+                                "id": current_tool_use_id,
+                                "name": current_tool_name,
+                                "input": {},
+                            }
+                        )
+                    elif event.content_block.type == "text":
+                        assistant_message_content.append({"type": "text", "text": ""})
+
+                elif event.type == "content_block_delta":
+                    event = cast(ContentBlockDeltaEvent, event)
+                    if event.delta.type == "text_delta":
+                        yield event.delta.text
+                        if (
+                            assistant_message_content
+                            and assistant_message_content[-1]["type"] == "text"
+                        ):
+                            assistant_message_content[-1]["text"] += event.delta.text
+                    elif event.delta.type == "input_json_delta":
+                        if current_tool_name:
+                            current_tool_input_chunks.append(event.delta.partial_json)
+
+                elif event.type == "content_block_stop":
+                    event = cast(ContentBlockStopEvent, event)
+                    if current_tool_name and current_tool_use_id:
+                        full_tool_input_str = "".join(current_tool_input_chunks)
+                        logger.info(
+                            (
+                                f"Tool use block finished (continue): {current_tool_name}."
+                                f" Input JSON: {full_tool_input_str}"
                             )
-                            current_tool_use_id = event.content_block.id
-                            current_tool_name = event.content_block.name
-                            current_tool_input_chunks = []
-                            assistant_message_content.append(
+                        )
+                        # try:
+                        # tool_input is already parsed by Claude, it's a dict
+                        logger.debug(full_tool_input_str)
+                        # Handle empty input string for tools without arguments
+                        tool_input = (
+                            json.loads(full_tool_input_str)
+                            if full_tool_input_str
+                            else {}
+                        )
+
+                        # Update the tool_use block in assistant message content
+                        for block in assistant_message_content:
+                            if block.get("id") == current_tool_use_id:
+                                block["input"] = tool_input
+                                break
+
+                        if not mcp_handler:  # Check handler too
+                            logger.error(
+                                "MCP session or handler not available for tool call processing in stream."
+                            )
+                            yield "\n[Error: Tool call processing failed - MCP handler/session unavailable]"
+                            return
+
+                        logger.info(
+                            f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
+                        )
+                        # Use McpHandler to call the tool
+                        tool_result_data = await mcp_handler.call_tool(
+                            current_tool_name.replace("__", "/"),
+                            tool_input,  # Pass dict directly
+                            current_tool_use_id,
+                        )
+                        log_msg = (  # Break long log message
+                            f"Tool {current_tool_name} result received (continue). "
+                            f"Is error: {tool_result_data['is_error']}"
+                        )
+                        logger.info(log_msg)
+
+                        # Append messages for the *next* recursive call
+                        messages.append(
+                            {
+                                "role": "assistant",
+                                "content": assistant_message_content,
+                            }
+                        )
+                        # Construct tool_result message using data from McpHandler
+                        tool_result_message = {
+                            "role": "user",
+                            "content": [
                                 {
-                                    "type": "tool_use",
-                                    "id": current_tool_use_id,
-                                    "name": current_tool_name,
-                                    "input": {},
+                                    "type": "tool_result",
+                                    "tool_use_id": current_tool_use_id,
+                                    "content": tool_result_data[
+                                        "content"
+                                    ],  # Use content from result
+                                    "is_error": tool_result_data[
+                                        "is_error"
+                                    ],  # Include is_error if needed by Claude
                                 }
-                            )
-                        elif event.content_block.type == "text":
-                            assistant_message_content.append(
-                                {"type": "text", "text": ""}
-                            )
+                            ],
+                        }
+                        messages.append(tool_result_message)
 
-                    elif event.type == "content_block_delta":
-                        event = cast(ContentBlockDeltaEvent, event)
-                        if event.delta.type == "text_delta":
-                            yield event.delta.text
-                            if (
-                                assistant_message_content
-                                and assistant_message_content[-1]["type"] == "text"
-                            ):
-                                assistant_message_content[-1][
-                                    "text"
-                                ] += event.delta.text
-                        elif event.delta.type == "input_json_delta":
-                            if current_tool_name:
-                                current_tool_input_chunks.append(
-                                    event.delta.partial_json
-                                )
+                        # Reset state
+                        current_tool_use_id = None
+                        current_tool_name = None
+                        current_tool_input_chunks = []
+                        assistant_message_content = []
 
-                    elif event.type == "content_block_stop":
-                        event = cast(ContentBlockStopEvent, event)
-                        if current_tool_name and current_tool_use_id:
-                            full_tool_input_str = "".join(current_tool_input_chunks)
-                            logger.info(
-                                (
-                                    f"Tool use block finished (continue): {current_tool_name}."
-                                    f" Input JSON: {full_tool_input_str}"
-                                )
-                            )
-                            try:
-                                # tool_input is already parsed by Claude, it's a dict
-                                tool_input = json.loads(full_tool_input_str)
+                        # Recursive call, passing the session and handler along
+                        logger.info("Continuing stream again after tool call...")
+                        async for chunk in self._continue_stream(
+                            messages,
+                            available_tools,
+                            mcp_handler,  # Pass handler
+                        ):
+                            yield chunk
+                        return  # Exit this stream branch
 
-                                # Update the tool_use block in assistant message content
-                                for block in assistant_message_content:
-                                    if block.get("id") == current_tool_use_id:
-                                        block["input"] = tool_input
-                                        break
+                elif event.type == "message_delta":
+                    event = cast(MessageDeltaEvent, event)
+                    if event.delta.stop_reason == "tool_use":
+                        logger.info(
+                            "Message delta indicates tool use is coming (continue)."
+                        )
 
-                                if not session or not mcp_handler:  # Check handler too
-                                    logger.error(
-                                        "MCP session or handler not available for tool call processing in stream."
-                                    )
-                                    yield "\n[Error: Tool call processing failed - MCP handler/session unavailable]"
-                                    return
-
-                                logger.info(
-                                    f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
-                                )
-                                # Use McpHandler to call the tool
-                                tool_result_data = await mcp_handler.call_tool(
-                                    session,
-                                    current_tool_name,
-                                    tool_input,  # Pass dict directly
-                                    current_tool_use_id,
-                                )
-                                log_msg = (  # Break long log message
-                                    f"Tool {current_tool_name} result received (continue). "
-                                    f"Is error: {tool_result_data['is_error']}"
-                                )
-                                logger.info(log_msg)
-
-                                # Append messages for the *next* recursive call
-                                messages.append(
-                                    {
-                                        "role": "assistant",
-                                        "content": assistant_message_content,
-                                    }
-                                )
-                                # Construct tool_result message using data from McpHandler
-                                tool_result_message = {
-                                    "role": "user",
-                                    "content": [
-                                        {
-                                            "type": "tool_result",
-                                            "tool_use_id": current_tool_use_id,
-                                            "content": tool_result_data[
-                                                "content"
-                                            ],  # Use content from result
-                                            "is_error": tool_result_data[
-                                                "is_error"
-                                            ],  # Include is_error if needed by Claude
-                                        }
-                                    ],
-                                }
-                                messages.append(tool_result_message)
-
-                                # Reset state
-                                current_tool_use_id = None
-                                current_tool_name = None
-                                current_tool_input_chunks = []
-                                assistant_message_content = []
-
-                                # Recursive call, passing the session and handler along
-                                logger.info(
-                                    "Continuing stream again after tool call..."
-                                )
-                                async for chunk in self._continue_stream(
-                                    session,
-                                    messages,
-                                    available_tools,
-                                    mcp_handler,  # Pass handler
-                                ):
-                                    yield chunk
-                                return  # Exit this stream branch
-
-                            except Exception as e:
-                                logger.error(
-                                    f"Error processing tool use {current_tool_name} (continue): {e}",
-                                    exc_info=True,
-                                )
-                                yield f"\nError using tool {current_tool_name}: {e}"
-                                return  # Stop this stream branch
-
-                    elif event.type == "message_delta":
-                        event = cast(MessageDeltaEvent, event)
-                        if event.delta.stop_reason == "tool_use":
-                            logger.info(
-                                "Message delta indicates tool use is coming (continue)."
-                            )
-
-                    elif event.type == "message_stop":
-                        logger.info("Continued stream processing finished.")
-
-        except Exception as e:
-            logger.error(f"Error during continued Claude streaming: {e}", exc_info=True)
-            yield f"\nAn error occurred during continued streaming: {e}"
+                elif event.type == "message_stop":
+                    logger.info("Continued stream processing finished.")
 
     async def _handle_tool_use(
         self,
-        session: ClientSession | None,  # Session can be None
         mcp_handler: McpHandler | None,  # Pass McpHandler
         tool_use: ToolUseBlock,
         claude_messages: list[dict[str, Any]],
         available_tools: list[dict[str, Any]],
     ) -> AnthropicMessage:
         """Handles a tool use request from Claude (non-streaming)."""
-        tool_name = tool_use.name
+        tool_name = tool_use.name.replace("__", "/")
         tool_args = tool_use.input  # Claude provides args as dict
         tool_use_id = tool_use.id
         logger.info(f"Calling tool {tool_name} with args {tool_args}")
 
-        if not session or not mcp_handler:
+        if not mcp_handler:
             logger.error(
                 "MCP session or handler not available for tool call in _handle_tool_use."
             )
@@ -292,9 +274,7 @@ class ClaudeAgent:
             return response
 
         # Use McpHandler to call the tool
-        result_data = await mcp_handler.call_tool(
-            session, tool_name, tool_args, tool_use_id
-        )
+        result_data = await mcp_handler.call_tool(tool_name, tool_args, tool_use_id)
         logger.info(f"Tool {tool_name} executed. Is error={result_data['is_error']}")
 
         # Append the assistant's tool use message and the user's tool result message
@@ -352,17 +332,15 @@ class ClaudeAgent:
         claude_messages = [self._construct_request(m) for m in messages]
         final_text_parts = []
         call_count = 0
-        session = None  # Initialize session variable
 
         # Use a local AsyncExitStack for this request
         async with AsyncExitStack() as exit_stack:
-            session = None  # Initialize session
             available_tools = []  # Initialize tools
             try:
                 # Use McpHandler to connect and get tools
                 if self.mcp_handler:
-                    session = await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools()
                     # Use the new Claude-specific formatting method
                     available_tools = self.mcp_handler.format_tools_for_claude(
                         mcp_tools
@@ -412,7 +390,6 @@ class ClaudeAgent:
 
                             # Pass the current session and handler to _handle_tool_use
                             response = await self._handle_tool_use(
-                                session,
                                 self.mcp_handler,  # Pass handler
                                 tool_use_block,
                                 claude_messages,
@@ -511,17 +488,15 @@ class ClaudeAgent:
     ) -> AsyncGenerator[str, None]:
         logger.info("Starting streaming request with MCP support...")
         claude_messages = [self._construct_request(m) for m in messages]
-        session = None  # Initialize session variable
 
         # Use a local AsyncExitStack for this streaming request
         async with AsyncExitStack() as exit_stack:
-            session = None  # Initialize session
             available_tools = []  # Initialize tools
             try:
                 # Use McpHandler to connect and get tools
                 if self.mcp_handler:
-                    session = await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools(session)
+                    await self.mcp_handler.connect(exit_stack)
+                    mcp_tools = await self.mcp_handler.list_tools()
                     # Use the new Claude-specific formatting method
                     available_tools = self.mcp_handler.format_tools_for_claude(
                         mcp_tools
@@ -533,7 +508,6 @@ class ClaudeAgent:
 
                 # Initial stream call, passing the session and handler
                 async for chunk in self._continue_stream(
-                    session,
                     claude_messages,
                     available_tools,
                     self.mcp_handler,  # Pass handler
@@ -561,4 +535,3 @@ class ClaudeAgent:
                 logger.info(
                     "Top-level streaming request finished or errored. Exit stack will close."
                 )
-                # Exit stack automatically cleans up resources (session, stdio)
