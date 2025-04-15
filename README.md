@@ -29,7 +29,21 @@ A customizable AI chat application powered by Flet.
     ANTHROPIC_API_KEY="your_anthropic_api_key"
     GEMINI_API_KEY="your_gemini_api_key"
     DEEPSEEK_API_KEY="your_deepseek_api_key"
+    MISTRAL_API_KEY="your_mistral_api_key" # Required if USE_MISTRAL_OCR is True
     ```
+
+## Configuration
+
+You can adjust various application settings directly within the `aichat/config.py` file:
+
+*   `IS_DEBUG` (bool): Enable or disable debug mode. This affects things like the database file used (`DEBUG_DB_NAME` vs `DB_NAME`).
+*   `USE_MISTRAL_OCR` (bool): Enable or disable OCR functionality using Mistral. Requires a Mistral API key configured in your environment.
+*   `DB_NAME` (str): The filename for the main application database.
+*   `DEBUG_DB_NAME` (str): The filename for the database used when `IS_DEBUG` is `True`.
+*   `USER_NAME` (str), `USER_AVATAR_COLOR` (ft.Colors): Customize the display name and avatar color for the user.
+*   `AGENT_NAME` (str), `AGENT_AVATAR_COLOR` (ft.Colors): Customize the base display name and avatar color for the AI agent. The specific model name is usually appended to this.
+*   `APP_ROLE_NAME` (str), `APP_ROLE_AVATAR_COLOR` (ft.Colors): Customize the display name and avatar color for application messages (e.g., errors).
+*   `MAX_REQUEST_COUNT` (int): The maximum number of chained requests allowed during tool use interactions before stopping.
 
 ## How to Run
 
@@ -167,4 +181,3 @@ Utilize MCP servers to integrate with external functionalities like file operati
 Please report bugs or suggest features via Issues, and submit code improvements via Pull Requests.
 
 ## License
-

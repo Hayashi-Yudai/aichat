@@ -2,7 +2,7 @@ import flet as ft
 
 
 IS_DEBUG = True
-USE_MISTRAL_OCR = True
+USE_MISTRAL_OCR = True  # Requires Mistral API key
 
 # Database
 DB_NAME = "aichat.db"
