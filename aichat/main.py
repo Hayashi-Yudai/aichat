@@ -1,10 +1,9 @@
 import uuid
 
 import flet as ft
-from loguru import logger
 
+import agents
 from agents.agent import AgentController
-from agents.openai_agent import OpenAIAgent, OpenAIModel
 from views.message_input_area import UserMessageArea
 from views.chat_display_area import ChatMessageDisplayContainer
 from views.left_side_bar_area import LeftSideBarArea
@@ -19,9 +18,7 @@ def main(page: ft.Page):
         color_scheme_seed=ft.Colors.GREY_50,
     )
     page.theme_mode = ft.ThemeMode.DARK
-
-    logger.debug("Initialize agent...")
-    agent = OpenAIAgent(OpenAIModel.GPT4OMINI)
+    agent = agents.get_agent_by_model(agents.OpenAIModel.GPT4OMINI)
     _ = AgentController(page=page)
 
     # Session Variables

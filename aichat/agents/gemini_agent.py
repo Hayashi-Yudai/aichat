@@ -1,6 +1,6 @@
 from enum import StrEnum
 import os
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
 
 from google import genai
 from loguru import logger
@@ -26,36 +26,28 @@ class GeminiAgent:
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {
-            "role": (
-                "model"
-                if message.role.avatar_color == config.AGENT_AVATAR_COLOR
-                else "user"
-            )
-        }
+        request = {"role": ("model" if message.is_asistant_message() else "user")}
 
-        if message.content_type == ContentType.TEXT:
-            request["parts"] = [{"text": message.system_content}]
-        elif (
-            message.content_type == ContentType.PNG
-            or message.content_type == ContentType.JPEG
-        ):
-            request["parts"] = [
-                {"text": message.display_content},
-                {
-                    "inline_data": {
-                        "mime_type": f"image/{message.content_type}",
-                        "data": message.system_content,
-                    }
-                },
-            ]
-        else:
-            logger.error(f"Invalid content type: {message.content_type}")
-            raise ValueError(f"Invalid content type: {message.content_type}")
+        match message.content_type:
+            case ContentType.TEXT:
+                request["parts"] = [{"text": message.system_content}]
+            case ContentType.PNG | ContentType.JPEG:
+                request["parts"] = [
+                    {"text": message.display_content},
+                    {
+                        "inline_data": {
+                            "mime_type": f"image/{message.content_type}",
+                            "data": message.system_content,
+                        }
+                    },
+                ]
+            case ContentType.UNKNOWN:
+                logger.error(f"Invalid content type: {message.content_type}")
+                raise ValueError(f"Invalid content type: {message.content_type}")
 
         return request
 
-    def request(self, messages: list[Message]) -> list[str]:
+    async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Google Gemini...")
 
         request_body = [self._construct_request(m) for m in messages]
@@ -63,9 +55,11 @@ class GeminiAgent:
             model=self.model, contents=request_body
         ).text
 
-        return [content]
+        return content
 
-    def request_streaming(self, messages: list[Message]) -> Generator[str, None, None]:
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to Google Gemini with streaming...")
 
         request_body = [self._construct_request(m) for m in messages]

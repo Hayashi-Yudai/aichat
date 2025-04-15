@@ -6,3 +6,6 @@ debug/
 .env
 mise.toml
 *.db
+
+servers.json
+servers.json.tpl

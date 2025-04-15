@@ -2,7 +2,7 @@ import flet as ft
 
 
 IS_DEBUG = True
-USE_MISTRAL_OCR = True
+USE_MISTRAL_OCR = True  # Requires Mistral API key
 
 # Database
 DB_NAME = "aichat.db"
@@ -14,3 +14,6 @@ AGENT_NAME = "Agent"
 AGENT_AVATAR_COLOR = ft.Colors.BLUE
 APP_ROLE_NAME = "App"
 APP_ROLE_AVATAR_COLOR = ft.Colors.GREY
+
+# For tool use
+MAX_REQUEST_COUNT = 5

@@ -1,0 +1,9 @@
+{
+    "your-server-name": {
+        "command": "python or npx",
+        "args": ["argument1", "argument2", ...],
+        "env": {
+            "ENV_VAR_NAME": "value"
+        },
+    }
+}

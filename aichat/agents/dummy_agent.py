@@ -26,5 +26,5 @@ class DummyAgent:
     def _construct_request(self, message: Message) -> dict[str, Any]:
         pass
 
-    def request(self, messages: list[Message]) -> list[str]:
+    async def request(self, messages: list[Message]) -> str:
         return messages[-1].display_content

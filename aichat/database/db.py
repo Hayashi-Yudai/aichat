@@ -25,10 +25,8 @@ class DB(Protocol):
 class SQLiteDB:
     def __init__(self, is_debug: bool = False):
         if is_debug:
-            logger.debug("Debug mode. Using debug database")
             self.db_name = config.DEBUG_DB_NAME
         else:
-            logger.debug("Production mode. Using prod database")
             self.db_name = config.DB_NAME
 
         sqlite3.register_adapter(datetime, _adapt_datetime)
