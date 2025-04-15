@@ -92,7 +92,7 @@ class _ChatMessageList(ft.ListView):
             Topics.NEW_CHAT, lambda _, __: self.controller.clear_controls()
         )
 
-    def update_content_func(self, controls: list[ft.Control]):
+    async def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
         self.update()
 

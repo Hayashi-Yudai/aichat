@@ -19,15 +19,17 @@ class ChatDisplayController:
 
     def restore_past_chat(self, chat_id: str):
         messages = self._get_all_messages_by_chat_id(chat_id)
-        self.update_content_callback([self.item_builder(m) for m in messages])
+        self.page.run_task(
+            self.update_content_callback, [self.item_builder(m) for m in messages]
+        )
 
     def clear_controls(self):
-        self.update_content_callback([])
+        self.page.run_task(self.update_content_callback, [])
 
     def add_new_message(self, controls: list[ft.Row], message: Message | list[Message]):
         message = message if isinstance(message, list) else [message]
         new_controls = controls + [self.item_builder(m) for m in message]
-        self.update_content_callback(new_controls)
+        self.page.run_task(self.update_content_callback, new_controls)
 
         self.page.pubsub.send_all_on_topic(
             Topics.REQUEST_TO_AGENT, [ctl.message for ctl in new_controls]
@@ -37,7 +39,7 @@ class ChatDisplayController:
 
     def update_latest_message(self, controls: list[ft.Row], message: Message):
         controls[-1] = self.item_builder(message)
-        self.update_content_callback(controls)
+        self.page.run_task(self.update_content_callback, controls)
 
     def _get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
         return Message.get_all_by_chat_id(chat_id)
