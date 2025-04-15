@@ -22,6 +22,9 @@ class OpenAIModel(StrEnum):
     O1 = "o1"
     O3MINI = "o3-mini"
     GPT45PREVIEW = "gpt-4.5-preview"
+    GPT41 = "gpt-4.1"
+    GPT41MINI = "gpt-4.1-mini"
+    GPT41NANO = "gpt-4.1-nano"
 
 
 class OpenAIAgent:
