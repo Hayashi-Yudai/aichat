@@ -82,7 +82,7 @@ class _ChatMessageList(ft.ListView):
         )
         self.pubsub.subscribe_topic(
             Topics.UPDATE_MESSAGE_STREAMLY,
-            lambda _, msg: self.controller.update_latest_message(self.controls, msg),
+            lambda _, msg: self.controller.update_message_streamly(self.controls, msg),
         )
         self.pubsub.subscribe_topic(
             Topics.PAST_CHAT_RESTORED,

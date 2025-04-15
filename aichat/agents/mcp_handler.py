@@ -5,7 +5,6 @@ from contextlib import AsyncExitStack
 
 from loguru import logger
 
-# Removed ContentPart import as it causes ImportError
 from mcp import ClientSession, StdioServerParameters, Tool
 from mcp.client.stdio import stdio_client
 
