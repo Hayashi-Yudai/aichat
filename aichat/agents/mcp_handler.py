@@ -88,10 +88,7 @@ class McpHandler:
                     )
                     continue  # 設定がない場合はスキップ
 
-                # self.sessions[server_name] = session # ここでの登録は不要になった
-                # logger.info(f"Successfully connected to MCP server: {server_name}") # ログも移動
             except Exception as e:
-                # Log the error but continue trying to connect to other servers
                 logger.error(
                     f"Failed to connect to MCP server {server_name}: {e}", exc_info=True
                 )
@@ -144,18 +141,30 @@ class McpHandler:
             A list of tool definitions in OpenAI format.
         """
         logger.info("Formatting tools for OpenAI...")
-        # Replace '/' with '__' in tool names for OpenAI compatibility
-        formatted_tools = [
-            {
-                "type": "function",
-                "function": {
-                    "name": tool.name.replace("/", "__"),  # Replace '/' with '__'
-                    "description": tool.description,
-                    "parameters": tool.inputSchema,
-                },
-            }
-            for tool in tools
-        ]
+        formatted_tools = []
+        for tool in tools:
+            # Ensure parameters schema is valid for OpenAI (requires properties)
+            params = tool.inputSchema or {"type": "object", "properties": {}}
+            if (
+                isinstance(params, dict)
+                and params.get("type") == "object"
+                and "properties" not in params
+            ):
+                logger.warning(
+                    f"Tool '{tool.name}' has no properties in schema for OpenAI. Adding empty properties."
+                )
+                params["properties"] = {}  # Add empty properties if missing
+
+            formatted_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name.replace("/", "__"),  # Replace '/' with '__'
+                        "description": tool.description,
+                        "parameters": params,  # Use potentially modified params
+                    },
+                }
+            )
         return formatted_tools
 
     def format_tools_for_claude(self, tools: list[Tool]) -> list[dict[str, Any]]:
@@ -169,14 +178,28 @@ class McpHandler:
             A list of tool definitions in Claude format.
         """
         logger.info("Formatting tools for Claude...")
-        formatted_tools = [
-            {
-                "name": tool.name.replace("/", "__"),
-                "description": tool.description,
-                "input_schema": tool.inputSchema,  # Claude uses 'input_schema'
-            }
-            for tool in tools
-        ]
+        formatted_tools = []
+        for tool in tools:
+            # Ensure input_schema is valid (add empty properties if needed for consistency)
+            input_schema = tool.inputSchema or {"type": "object", "properties": {}}
+            if (
+                isinstance(input_schema, dict)
+                and input_schema.get("type") == "object"
+                and "properties" not in input_schema
+            ):
+                logger.warning(
+                    f"Tool '{tool.name}' schema for Claude lacks properties. "
+                    "Adding empty properties for consistency."
+                )
+                input_schema["properties"] = {}  # Add empty properties if missing
+
+            formatted_tools.append(
+                {
+                    "name": tool.name.replace("/", "__"),
+                    "description": tool.description,
+                    "input_schema": input_schema,  # Use potentially modified input_schema
+                }
+            )
         return formatted_tools
 
     async def call_tool(
