@@ -1,9 +1,12 @@
 {
-    "your-server-name": {
+    "your-stdio-server-name": {
         "command": "python or npx",
         "args": ["argument1", "argument2", ...],
         "env": {
             "ENV_VAR_NAME": "value"
         },
+    },
+    "your-sse-server-name": {
+        "url": "URL_TO_SERVER",
     }
 }
