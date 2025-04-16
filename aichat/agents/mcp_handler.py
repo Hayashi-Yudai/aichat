@@ -7,6 +7,7 @@ from loguru import logger
 
 from mcp import ClientSession, StdioServerParameters, Tool
 from mcp.client.stdio import stdio_client
+from mcp.client.sse import sse_client
 
 
 class McpHandler:
@@ -48,26 +49,47 @@ class McpHandler:
 
             try:
                 logger.info(f"Attempting to connect to MCP server: {server_name}...")
-                # Ensure 'command' and 'args' are present, handle potential KeyError
-                if "command" not in config or "args" not in config:
-                    logger.error(
-                        f"Missing 'command' or 'args' in config for server {server_name}"
+                if "command" in config:
+                    if "args" not in config:
+                        logger.error(
+                            f"Missing 'args' in config for server {server_name}"
+                        )
+                        continue  # Skip this server
+
+                    server_params = StdioServerParameters(**config)
+                    stdio_transport = await exit_stack.enter_async_context(
+                        stdio_client(server_params)
                     )
-                    continue  # Skip this server
+                    stdio, write = stdio_transport
+                    session = await exit_stack.enter_async_context(
+                        ClientSession(stdio, write)
+                    )
+                    await session.initialize()
+                    self.sessions[server_name] = session  # stdio の session を登録
+                    logger.info(
+                        f"Successfully connected to MCP server (stdio): {server_name}"
+                    )
+                elif "url" in config:  # elif に変更
+                    # sse_client と ClientSession を exit_stack で管理する
+                    streams = await exit_stack.enter_async_context(
+                        sse_client(config["url"])
+                    )
+                    session = await exit_stack.enter_async_context(
+                        ClientSession(streams[0], streams[1])
+                    )
+                    await session.initialize()
+                    self.sessions[server_name] = session  # sse の session を登録
+                    logger.info(
+                        f"Successfully connected to MCP server (sse): {server_name}"
+                    )
+                else:
+                    logger.warning(
+                        f"Server config for {server_name} has neither 'command' nor 'url'. Skipping."
+                    )
+                    continue  # 設定がない場合はスキップ
 
-                server_params = StdioServerParameters(**config)
-                # Ensure stdio_client and ClientSession are managed by the provided exit_stack
-                stdio_transport = await exit_stack.enter_async_context(
-                    stdio_client(server_params)
-                )
-                stdio, write = stdio_transport
-                session = await exit_stack.enter_async_context(
-                    ClientSession(stdio, write)
-                )
-
-                await session.initialize()
-                self.sessions[server_name] = session
-                logger.info(f"Successfully connected to MCP server: {server_name}")
+                # self.sessions[server_name] = session # ここでの登録は不要になった
+                # logger.info(f"Successfully connected to MCP server: {server_name}") # ログも移動
             except Exception as e:
                 # Log the error but continue trying to connect to other servers
                 logger.error(
