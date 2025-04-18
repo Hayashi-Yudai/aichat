@@ -18,7 +18,7 @@ def main(page: ft.Page):
         color_scheme_seed=ft.Colors.GREY_50,
     )
     page.theme_mode = ft.ThemeMode.DARK
-    agent = agents.get_agent_by_model(agents.OpenAIModel.GPT4OMINI)
+    agent = agents.get_agent_by_model(agents.OpenAIModel.O4MINI)
     _ = AgentController(page=page)
 
     # Session Variables
