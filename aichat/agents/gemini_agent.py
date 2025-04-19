@@ -3,6 +3,7 @@ import os
 from typing import Any, AsyncGenerator
 
 from google import genai
+from google.genai import types
 from loguru import logger
 
 import config
@@ -26,20 +27,22 @@ class GeminiAgent:
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {"role": ("model" if message.is_asistant_message() else "user")}
+        request = types.Content(
+            role="model" if message.is_asistant_message() else "user"
+        )
 
         match message.content_type:
             case ContentType.TEXT:
-                request["parts"] = [{"text": message.system_content}]
+                request.parts = [types.Part(text=message.system_content)]
             case ContentType.PNG | ContentType.JPEG:
-                request["parts"] = [
-                    {"text": message.display_content},
-                    {
-                        "inline_data": {
-                            "mime_type": f"image/{message.content_type}",
-                            "data": message.system_content,
-                        }
-                    },
+                request.parts = [
+                    types.Part(text=message.display_content),
+                    types.Part(
+                        inline_data=types.Blob(
+                            mime_type=f"image/{message.content_type}",
+                            data=message.system_content,
+                        ),
+                    ),
                 ]
             case ContentType.UNKNOWN:
                 logger.error(f"Invalid content type: {message.content_type}")
