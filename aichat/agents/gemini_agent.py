@@ -176,7 +176,6 @@ class GeminiAgent:
                                     ),
                                 ]
                             else:
-                                logger.debug("No function call found in the response.")
                                 yield content.text
                 if is_final_response:
                     break

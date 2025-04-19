@@ -28,7 +28,6 @@ class McpHandler:
         config_path = Path(__file__).parent / "servers.json"
         if not config_path.exists():
             logger.warning(f"MCP server config file not found: {config_path}")
-            # Consider raising an error or handling this case appropriately
             return
 
         try:
@@ -36,14 +35,13 @@ class McpHandler:
                 self.server_configs = json.load(f)
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse servers.json: {e}", exc_info=True)
-            return  # Or raise
+            return
 
-        logger.info(
+        logger.debug(
             f"Found server configurations for: {list(self.server_configs.keys())}"
         )
 
         for server_name, config in self.server_configs.items():
-            # Skip servers marked as disabled (optional feature)
             if config.get("disabled", False):
                 logger.info(f"Skipping disabled MCP server: {server_name}")
                 continue
@@ -57,45 +55,29 @@ class McpHandler:
                         )
                         continue  # Skip this server
 
-                    server_params = StdioServerParameters(**config)
-                    stdio_transport = await exit_stack.enter_async_context(
-                        stdio_client(server_params)
+                    read_stream, write_stream = await exit_stack.enter_async_context(
+                        stdio_client(StdioServerParameters(**config))
                     )
-                    stdio, write = stdio_transport
-                    session = await exit_stack.enter_async_context(
-                        ClientSession(stdio, write)
-                    )
-                    await session.initialize()
-                    self.sessions[server_name] = session  # stdio の session を登録
-                    logger.info(
-                        f"Successfully connected to MCP server (stdio): {server_name}"
-                    )
-                elif "url" in config:  # elif に変更
-                    # sse_client と ClientSession を exit_stack で管理する
-                    streams = await exit_stack.enter_async_context(
+                elif "url" in config:
+                    read_stream, write_stream = await exit_stack.enter_async_context(
                         sse_client(config["url"])
-                    )
-                    session = await exit_stack.enter_async_context(
-                        ClientSession(streams[0], streams[1])
-                    )
-                    await session.initialize()
-                    self.sessions[server_name] = session  # sse の session を登録
-                    logger.info(
-                        f"Successfully connected to MCP server (sse): {server_name}"
                     )
                 else:
                     logger.warning(
                         f"Server config for {server_name} has neither 'command' nor 'url'. Skipping."
                     )
-                    continue  # 設定がない場合はスキップ
+                    continue
+
+                session = await exit_stack.enter_async_context(
+                    ClientSession(read_stream, write_stream)
+                )
+                await session.initialize()
+                self.sessions[server_name] = session
 
             except Exception as e:
                 logger.error(
                     f"Failed to connect to MCP server {server_name}: {e}", exc_info=True
                 )
-
-        logger.info(f"Connected MCP servers: {list(self.sessions.keys())}")
-        # No return value needed
 
     async def list_tools(self) -> list[Tool]:  # Removed session argument
         """
@@ -110,12 +92,10 @@ class McpHandler:
             try:
                 response = await session.list_tools()
                 for tool in response.tools:
-                    # Create a new Tool object with a prefixed name
                     prefixed_tool = Tool(
                         name=f"{server_name}/{tool.name}",
                         description=tool.description,
                         inputSchema=tool.inputSchema,
-                        # Copy other relevant fields if necessary, e.g., outputSchema if used
                     )
                     all_tools.append(prefixed_tool)
                 logger.info(
@@ -126,7 +106,6 @@ class McpHandler:
                     f"Failed to list tools from server {server_name}: {e}",
                     exc_info=True,
                 )
-                # Continue to next server even if one fails
 
         logger.info(f"Total tools found across all servers: {len(all_tools)}")
         return all_tools
@@ -264,7 +243,6 @@ class McpHandler:
         log_id_part = f" (ID: {tool_call_id})" if tool_call_id else ""
         logger.info(f"Attempting to call MCP tool: {name}{log_id_part}")
 
-        # Parse server_name and actual_tool_name
         try:
             if "/" not in name:
                 raise ValueError("Tool name does not contain '/' separator.")
@@ -281,7 +259,6 @@ class McpHandler:
                 "is_error": True,
             }
 
-        # Find the correct session
         session = self.sessions.get(server_name)
         if not session:
             error_content = (
@@ -301,16 +278,10 @@ class McpHandler:
 
         tool_args_dict = {}
         try:
-            # Handle both string and dict arguments
             if isinstance(args, str):
-                # Attempt to parse if it looks like JSON, otherwise treat as string arg if schema allows
                 try:
                     tool_args_dict = json.loads(args)
                 except json.JSONDecodeError:
-                    # If JSON parsing fails, maybe the tool expects a single string argument?
-                    # This depends heavily on the tool's inputSchema.
-                    # For simplicity now, we'll assume JSON or dict is required.
-                    # A more robust solution would check the inputSchema.
                     logger.warning(
                         f"Argument for tool {name} is a string but not valid JSON: {args}. Assuming dict required."
                     )
@@ -332,24 +303,19 @@ class McpHandler:
             log_msg = (
                 f"Tool {actual_tool_name} on server {server_name} executed. "
                 f"Content available: {bool(result.content)}. "
-                # Check if is_error exists and log it, default to False if not present
                 f"Is error: {getattr(result, 'is_error', False)}"
             )
             logger.info(log_msg)
 
             content_text = ""
             if result.content:
-                # Simplify content handling without ContentPart type check
                 if isinstance(result.content, list) and len(result.content) > 0:
-                    # Attempt to extract text from the first element if it has a 'text' attribute
                     first_part = result.content[0]
                     if hasattr(first_part, "text") and isinstance(first_part.text, str):
                         content_text = first_part.text
-                    # Fallback: if it's a list of strings, join them
                     elif all(isinstance(item, str) for item in result.content):
                         content_text = "\n".join(result.content)
                     else:
-                        # Fallback: convert the first element to string if possible
                         try:
                             content_text = str(first_part)
                             logger.warning(
@@ -364,7 +330,6 @@ class McpHandler:
                 elif isinstance(result.content, str):
                     content_text = result.content
                 else:
-                    # Attempt to convert other types to string representation
                     try:
                         content_text = str(result.content)
                         log_message = (
@@ -377,7 +342,6 @@ class McpHandler:
                             f"Could not convert content to string for tool {actual_tool_name} on {server_name}"
                         )
 
-            # Use getattr to safely check for is_error attribute
             is_error_flag = getattr(result, "is_error", False)
 
             return {
@@ -395,7 +359,7 @@ class McpHandler:
                 "content": error_content,
                 "is_error": True,
             }
-        except TypeError as e:  # Catch specific TypeError from arg handling
+        except TypeError as e:
             error_content = f"Error processing arguments for tool {name}: {e}"
             logger.error(error_content, exc_info=True)
             return {
@@ -403,8 +367,7 @@ class McpHandler:
                 "content": error_content,
                 "is_error": True,
             }
-        except Exception as e:  # Corrected indentation
-            # Shorten the error message line
+        except Exception as e:
             error_content = (
                 f"Tool execution error ({server_name}/{actual_tool_name}): {e}"
             )
@@ -412,7 +375,6 @@ class McpHandler:
                 f"Error executing tool {actual_tool_name} on server {server_name}: {e}",
                 exc_info=True,
             )
-            # Ensure the error response structure is consistent
             return {
                 "tool_use_id": tool_call_id,
                 "content": error_content,

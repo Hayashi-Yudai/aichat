@@ -40,7 +40,6 @@ class _MessageInputArea(ft.TextField):
     def update_view_func(self):
         self.value = ""
         self.focus()
-        # self.update()
 
 
 class _FileLoader(ft.FilePicker):
