@@ -8,6 +8,7 @@ from loguru import logger
 from mcp import ClientSession, StdioServerParameters, Tool
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
+from google.genai import types
 
 
 class McpHandler:
@@ -200,6 +201,47 @@ class McpHandler:
                     "input_schema": input_schema,  # Use potentially modified input_schema
                 }
             )
+        return formatted_tools
+
+    def format_tools_for_gemini(self, tools: list[Tool]) -> list[dict[str, Any]]:
+        def format_schema(s: dict) -> dict:
+            # Recursively format for 'Schema' class
+            if s.get("items"):
+                s["items"] = format_schema(s["items"])
+            if s.get("properties"):
+                s["properties"] = {
+                    k: format_schema(v) for k, v in s["properties"].items()
+                }
+
+            # Gemini does not support these properties
+            if s.get("additionalProperties") is not None:
+                s.pop("additionalProperties")
+            if s.get("$schema") is not None:
+                s.pop("$schema")
+            if s.get("default") is not None:
+                s.pop("default")
+
+            return s
+
+        logger.info("Formatting tools for Gemini...")
+        formatted_tools = []
+        for tool in tools:
+            tools_dict = {
+                "name": tool.name.replace("/", "__"),
+                "description": tool.description,
+            }
+            parameters = {
+                "type": tool.inputSchema["type"],
+                "required": tool.inputSchema.get("required", []),
+                "properties": tool.inputSchema.get("properties", {}),
+            }
+
+            for k, v in parameters["properties"].items():
+                parameters["properties"][k] = format_schema(v)
+
+            tools_dict["parameters"] = parameters
+            formatted_tools.append(types.Tool(function_declarations=[tools_dict]))
+
         return formatted_tools
 
     async def call_tool(

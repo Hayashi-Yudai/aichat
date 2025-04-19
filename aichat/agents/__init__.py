@@ -38,8 +38,7 @@ def get_agent_by_model(model: StrEnum) -> Agent:
     if model in OpenAIModel:
         return OpenAIAgent(model, mcp_handler=_mcp_handler_instance)
     elif model in GeminiModel:
-        # Assuming GeminiAgent does not use McpHandler (adjust if it does)
-        return GeminiAgent(model)
+        return GeminiAgent(model, mcp_handler=_mcp_handler_instance)
     elif model in ClaudeModel:
         return ClaudeAgent(model, mcp_handler=_mcp_handler_instance)
     elif model in DeepSeekModel:
