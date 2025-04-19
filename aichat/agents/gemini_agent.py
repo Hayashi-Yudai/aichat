@@ -26,7 +26,7 @@ class GeminiAgent:
         self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
         self.mcp_handler = mcp_handler
 
-        self.streamable = False
+        self.streamable = True
 
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
@@ -129,11 +129,56 @@ class GeminiAgent:
     ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to Google Gemini with streaming...")
 
-        request_body = [self._construct_request(m) for m in messages]
-        response = self.client.models.generate_content_stream(
-            model=self.model, contents=request_body
-        )
+        async with AsyncExitStack() as exit_stack:
+            available_tools = await self._setup_mcp_handler(exit_stack)
 
-        for chunk in response:
-            if hasattr(chunk, "text") and chunk.text:
-                yield chunk.text
+            request_body = [self._construct_request(m) for m in messages]
+
+            cnt = 0
+            while cnt < config.MAX_REQUEST_COUNT:
+                is_final_response = True
+                content_stream = self.client.models.generate_content_stream(
+                    model=self.model,
+                    contents=request_body,
+                    config=types.GenerateContentConfig(tools=available_tools),
+                )
+
+                for content in content_stream:
+                    for candidate in content.candidates:
+                        for part in candidate.content.parts:
+                            if part.function_call:
+                                function_call = part.function_call
+                                function_call.name = function_call.name.replace(
+                                    "__", "/"
+                                )
+                                logger.debug(
+                                    f"function_call: {function_call.name}({function_call.args})"
+                                )
+                                result = await self.mcp_handler.call_tool(
+                                    function_call.name, args=function_call.args
+                                )
+                                logger.debug(f"Tool result: {result['content']}")
+                                is_final_response = False
+
+                                request_body += [
+                                    types.Content(
+                                        role="model",
+                                        parts=[types.Part(function_call=function_call)],
+                                    ),
+                                    types.Content(
+                                        role="user",
+                                        parts=[
+                                            types.Part.from_function_response(
+                                                name=function_call.name,
+                                                response={"result": result},
+                                            )
+                                        ],
+                                    ),
+                                ]
+                            else:
+                                logger.debug("No function call found in the response.")
+                                yield content.text
+                if is_final_response:
+                    break
+
+                cnt += 1
