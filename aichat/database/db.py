@@ -40,14 +40,11 @@ class SQLiteDB:
             logger.debug(f"{table_name} table does not exist. Create table...")
             self._create_table(table_name, schema)
 
-        logger.debug(f"Data insert into {table_name} table")
-
         columns = [s.column_name for s in schema]
         sql = (
             f"INSERT INTO {table_name} ({', '.join(columns)})"
             + f" VALUES ({', '.join(['?' for _ in schema])});"
         )
-        logger.debug(f"Execute SQL: {sql}")
         with self.__get_connection() as conn:
             conn.execute(sql, values)
 

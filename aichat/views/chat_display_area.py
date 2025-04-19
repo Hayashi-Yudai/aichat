@@ -1,4 +1,5 @@
 import flet as ft
+from loguru import logger
 
 from models.message import Message, ContentType
 from controllers.chat_display_controller import ChatDisplayController
@@ -76,25 +77,32 @@ class _ChatMessageList(ft.ListView):
             item_builder=_ChatMessage,
         )
 
+        self.pubsub.subscribe_topic(Topics.APPEND_MESSAGE, self.append_message)
         self.pubsub.subscribe_topic(
-            Topics.APPEND_MESSAGE,
-            lambda _, msg: self.controller.add_new_message(self.controls, msg),
+            Topics.UPDATE_MESSAGE_STREAMLY, self.update_message_streamly
         )
-        self.pubsub.subscribe_topic(
-            Topics.UPDATE_MESSAGE_STREAMLY,
-            lambda _, msg: self.controller.update_message_streamly(self.controls, msg),
-        )
-        self.pubsub.subscribe_topic(
-            Topics.PAST_CHAT_RESTORED,
-            lambda _, chat_id: self.controller.restore_past_chat(chat_id),
-        )
-        self.pubsub.subscribe_topic(
-            Topics.NEW_CHAT, lambda _, __: self.controller.clear_controls()
-        )
+        self.pubsub.subscribe_topic(Topics.PAST_CHAT_RESTORED, self.restore_past_chat)
+        self.pubsub.subscribe_topic(Topics.NEW_CHAT, self.new_chat)
 
     async def update_content_func(self, controls: list[ft.Control]):
         self.controls = controls
         self.update()
+
+    def append_message(self, topic: Topics, message: Message):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controller.add_new_message(self.controls, message)
+
+    def update_message_streamly(self, topic: Topics, message: Message):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controller.update_message_streamly(self.controls, message)
+
+    def restore_past_chat(self, topic: Topics, chat_id: str):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controller.restore_past_chat(chat_id)
+
+    def new_chat(self, topic: Topics, chat_id: str):
+        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        self.controller.clear_controls()
 
 
 class ChatMessageDisplayContainer(ft.Container):

@@ -1,6 +1,7 @@
 from typing import Callable
 
 import flet as ft
+from loguru import logger
 
 from topics import Topics
 from models.message import Message
@@ -36,6 +37,9 @@ class ChatDisplayController:
         )
 
         self.page.pubsub.send_all_on_topic(Topics.UPDATE_CHAT, None)
+        logger.debug(
+            f"{self.__class__.__name__} published topic: {Topics.REQUEST_TO_AGENT}"
+        )
 
     def update_message_streamly(self, controls: list[ft.Row], message: Message):
         if controls[-1].message.role.avatar_color == message.role.avatar_color:

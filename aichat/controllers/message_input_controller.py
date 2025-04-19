@@ -37,6 +37,9 @@ class MessageInputController:
         msg.insert_into_db()
 
         self.update_view_callback()
+        logger.debug(
+            f"{self.__class__.__name__} published topic: {Topics.APPEND_MESSAGE}"
+        )
         self.pubsub.send_all_on_topic(Topics.APPEND_MESSAGE, msg)
 
 
