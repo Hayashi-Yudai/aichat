@@ -4,7 +4,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from .agent import Agent
-from .mcp_handler import McpHandler  # Added McpHandler import
+from .mcp_tools.mcp_handler import McpHandler  # Added McpHandler import
 from .openai_agent import OpenAIAgent, OpenAIModel
 from .gemini_agent import GeminiAgent, GeminiModel
 from .deepseek_agent import DeepSeekAgent, DeepSeekModel
@@ -34,7 +34,7 @@ all_models = list(itertools.chain.from_iterable(base_models))
 # Define the path to the MCP server script relative to this __init__.py
 # This assumes a single, shared MCP handler instance for all agents needing it.
 # If different agents need different handlers, this logic needs adjustment.
-_mcp_handler_instance = McpHandler(Path(__file__).parent / "servers.json")
+_mcp_handler_instance = McpHandler(Path(__file__).parent / "mcp_tools/servers.json")
 
 
 def get_agent_by_model(model: StrEnum) -> Agent:
