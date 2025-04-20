@@ -112,5 +112,11 @@ class Message:
 
         return [cls.from_tuple(e) for e in entities]
 
-    def is_asistant_message(self):
+    def is_assistant_message(self):
         return self.role.avatar_color == config.AGENT_AVATAR_COLOR
+
+    def is_user_message(self):
+        return self.role.avatar_color in [
+            config.USER_AVATAR_COLOR,
+            config.APP_ROLE_AVATAR_COLOR,
+        ]

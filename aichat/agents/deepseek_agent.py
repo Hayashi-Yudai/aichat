@@ -31,7 +31,7 @@ class DeepSeekAgent:
         )
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        request = {"role": ("assistant" if message.is_asistant_message else "user")}
+        request = {"role": ("assistant" if message.is_assistant_message else "user")}
 
         match message.content_type:
             case ContentType.TEXT:

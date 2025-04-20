@@ -41,7 +41,7 @@ class OpenAIAgent:
     def _construct_request(self, message: Message) -> dict[str, Any]:
         """Constructs the request dictionary for a single message."""
         request: dict[str, Any] = {
-            "role": ("assistant" if message.is_asistant_message() else "user")
+            "role": ("assistant" if message.is_assistant_message() else "user")
         }
         match message.content_type:
             case ContentType.TEXT:
