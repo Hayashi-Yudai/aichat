@@ -3,14 +3,13 @@ import json
 import os
 
 from typing import Any, AsyncGenerator
-from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
 
-from .mcp_handler import McpHandler
+from .mcp_handler import McpHandler, OpenAIToolFormatter
 import config
 from models.role import Role
 from models.message import Message, ContentType
@@ -62,19 +61,6 @@ class OpenAIAgent:
 
         return request
 
-    async def _setup_mcp_handler(
-        self, exit_stack: AsyncExitStack
-    ) -> list[dict[str, Any]]:
-        """Sets up the MCP handler for tool calls."""
-        if self.mcp_handler:
-            await self.mcp_handler.connect(exit_stack)
-            mcp_tools = await self.mcp_handler.list_tools()
-            available_tools = self.mcp_handler.format_tools_for_openai(mcp_tools)
-            return available_tools
-        else:
-            logger.warning("McpHandler not provided, tool use disabled.")
-            return []
-
     async def request(self, messages: list[Message]) -> str:
         """Handles non-streaming requests with potential tool calls."""
         logger.info("Sending non-streaming message to OpenAI with MCP support...")
@@ -82,76 +68,75 @@ class OpenAIAgent:
         final_text_parts = []
         call_count = 0
 
-        async with AsyncExitStack() as exit_stack:
-            available_tools = await self._setup_mcp_handler(exit_stack)
+        available_tools = OpenAIToolFormatter.format(self.mcp_handler.tools)
 
-            while call_count < config.MAX_REQUEST_COUNT:
-                logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
+        while call_count < config.MAX_REQUEST_COUNT:
+            logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
 
-                request_params = {"messages": openai_messages, "model": self.model}
-                if len(available_tools) > 0:
-                    request_params["tools"] = available_tools
-                    request_params["tool_choice"] = "auto"
+            request_params = {"messages": openai_messages, "model": self.model}
+            if len(available_tools) > 0:
+                request_params["tools"] = available_tools
+                request_params["tool_choice"] = "auto"
 
-                chat_completion: ChatCompletion = (
-                    await self.client.chat.completions.create(**request_params)
+            chat_completion: ChatCompletion = await self.client.chat.completions.create(
+                **request_params
+            )
+            response_message = chat_completion.choices[0].message
+            finish_reason = chat_completion.choices[0].finish_reason
+
+            openai_messages.append(response_message.model_dump(exclude_unset=True))
+
+            if response_message.content:
+                logger.info("Received text content.")
+                final_text_parts.append(response_message.content)
+
+            if response_message.tool_calls:
+                logger.info(
+                    f"Received {len(response_message.tool_calls)} tool call(s)."
                 )
-                response_message = chat_completion.choices[0].message
-                finish_reason = chat_completion.choices[0].finish_reason
 
-                openai_messages.append(response_message.model_dump(exclude_unset=True))
-
-                if response_message.content:
-                    logger.info("Received text content.")
-                    final_text_parts.append(response_message.content)
-
-                if response_message.tool_calls:
+                tool_results = []
+                for tool_call in response_message.tool_calls:
+                    openai_tool_name = tool_call.function.name
+                    mcp_tool_name = openai_tool_name
+                    tool_args_str = tool_call.function.arguments
+                    tool_call_id = tool_call.id
                     logger.info(
-                        f"Received {len(response_message.tool_calls)} tool call(s)."
+                        f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
+                    )
+                    tool_result = await self.mcp_handler.call_tool(
+                        mcp_tool_name,
+                        tool_args_str,
+                        tool_call_id,
                     )
 
-                    tool_results = []
-                    for tool_call in response_message.tool_calls:
-                        openai_tool_name = tool_call.function.name
-                        mcp_tool_name = openai_tool_name
-                        tool_args_str = tool_call.function.arguments
-                        tool_call_id = tool_call.id
-                        logger.info(
-                            f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
-                        )
-                        tool_result = await self.mcp_handler.call_tool(
-                            mcp_tool_name,
-                            tool_args_str,
-                            tool_call_id,
-                        )
+                    tool_result_formatted = {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": tool_result.get("content", ""),
+                    }
+                    tool_results.append(tool_result_formatted)
 
-                        tool_result_formatted = {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": tool_result.get("content", ""),
-                        }
-                        tool_results.append(tool_result_formatted)
-
-                    openai_messages.extend(tool_results)
-                    call_count += 1
-                    continue
-
-                if finish_reason == "stop":
-                    logger.info("Finish reason 'stop'. Ending interaction.")
-                    break
-                elif finish_reason == "length":
-                    logger.warning("Finish reason 'length'. Max tokens reached.")
-                    break
-                elif finish_reason == "tool_calls":
-                    logger.debug("Finish reason 'tool_calls'. Loop will continue.")
-                else:
-                    logger.warning(f"Unexpected finish reason: {finish_reason}")
-                    break
-
+                openai_messages.extend(tool_results)
                 call_count += 1
-                if call_count >= config.MAX_REQUEST_COUNT:
-                    logger.warning("Reached max request count.")
-                    break
+                continue
+
+            if finish_reason == "stop":
+                logger.info("Finish reason 'stop'. Ending interaction.")
+                break
+            elif finish_reason == "length":
+                logger.warning("Finish reason 'length'. Max tokens reached.")
+                break
+            elif finish_reason == "tool_calls":
+                logger.debug("Finish reason 'tool_calls'. Loop will continue.")
+            else:
+                logger.warning(f"Unexpected finish reason: {finish_reason}")
+                break
+
+            call_count += 1
+            if call_count >= config.MAX_REQUEST_COUNT:
+                logger.warning("Reached max request count.")
+                break
 
         content_text = "\n".join(final_text_parts).strip()
         assistant_had_tool_calls = any(
@@ -176,83 +161,82 @@ class OpenAIAgent:
         logger.info("Starting streaming request with OpenAI and MCP support...")
         prompt = [self._construct_request(m) for m in messages]
 
-        async with AsyncExitStack() as exit_stack:
-            available_tools = await self._setup_mcp_handler(exit_stack)
+        available_tools = OpenAIToolFormatter.format(self.mcp_handler.tools)
 
-            for _ in range(config.MAX_REQUEST_COUNT):
-                is_final_response = True
-                request_body = {
-                    "model": self.model,
-                    "messages": prompt,
-                    "tools": available_tools,
-                    "tool_choice": "auto",
-                    "stream": True,
-                }
+        for _ in range(config.MAX_REQUEST_COUNT):
+            is_final_response = True
+            request_body = {
+                "model": self.model,
+                "messages": prompt,
+                "tools": available_tools,
+                "tool_choice": "auto",
+                "stream": True,
+            }
 
-                stream: AsyncStream[ChatCompletionChunk] = (
-                    await self.client.chat.completions.create(**request_body)
+            stream: AsyncStream[ChatCompletionChunk] = (
+                await self.client.chat.completions.create(**request_body)
+            )
+
+            tool_id = None
+            tool_name = None
+            tool_args = None
+
+            async for chunk in stream:
+                for choice in chunk.choices:
+                    delta = choice.delta
+                    finish_reason = choice.finish_reason
+
+                    if delta.tool_calls:
+                        for tool_call in delta.tool_calls:
+                            if tool_id is None:
+                                tool_id = tool_call.id
+                            if tool_name is None:
+                                tool_name = tool_call.function.name
+
+                            if tool_args is None:
+                                tool_args = tool_call.function.arguments
+                            else:
+                                tool_args += tool_call.function.arguments
+                    if delta.content:
+                        yield delta.content
+
+            if finish_reason == "tool_calls":
+                is_final_response = False
+
+                tool_args_dict = json.loads(tool_args)
+                logger.debug(f"Tool ID: {tool_id}")
+                logger.debug(f"Tool Name: {tool_name}")
+                logger.debug(f"Tool Args: {tool_args}")
+
+                result = await self.mcp_handler.call_tool(
+                    tool_name, args=tool_args_dict
                 )
 
-                tool_id = None
-                tool_name = None
-                tool_args = None
+                prompt.append(
+                    {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "id": tool_id,
+                                "type": "function",
+                                "function": {
+                                    "name": tool_name,
+                                    "arguments": tool_args,
+                                },
+                            }
+                        ],
+                    }
+                )
+                prompt.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_id,
+                        "content": result.get("content", ""),
+                    }
+                )
+            elif finish_reason == "stop":
+                logger.debug("Finished streaming.")
+                break
 
-                async for chunk in stream:
-                    for choice in chunk.choices:
-                        delta = choice.delta
-                        finish_reason = choice.finish_reason
-
-                        if delta.tool_calls:
-                            for tool_call in delta.tool_calls:
-                                if tool_id is None:
-                                    tool_id = tool_call.id
-                                if tool_name is None:
-                                    tool_name = tool_call.function.name
-
-                                if tool_args is None:
-                                    tool_args = tool_call.function.arguments
-                                else:
-                                    tool_args += tool_call.function.arguments
-                        if delta.content:
-                            yield delta.content
-
-                if finish_reason == "tool_calls":
-                    is_final_response = False
-
-                    tool_args_dict = json.loads(tool_args)
-                    logger.debug(f"Tool ID: {tool_id}")
-                    logger.debug(f"Tool Name: {tool_name}")
-                    logger.debug(f"Tool Args: {tool_args}")
-
-                    result = await self.mcp_handler.call_tool(
-                        tool_name, args=tool_args_dict
-                    )
-
-                    prompt.append(
-                        {
-                            "role": "assistant",
-                            "tool_calls": [
-                                {
-                                    "id": tool_id,
-                                    "type": "function",
-                                    "function": {
-                                        "name": tool_name,
-                                        "arguments": tool_args,
-                                    },
-                                }
-                            ],
-                        }
-                    )
-                    prompt.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_id,
-                            "content": result.get("content", ""),
-                        }
-                    )
-                elif finish_reason == "stop":
-                    logger.debug("Finished streaming.")
-                    break
-
-                if is_final_response:
-                    break
+            if is_final_response:
+                break

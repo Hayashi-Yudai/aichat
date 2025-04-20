@@ -6,9 +6,8 @@ from typing import Any, AsyncGenerator, cast
 
 from loguru import logger
 import anthropic
-from contextlib import AsyncExitStack
 
-from .mcp_handler import McpHandler
+from .mcp_handler import McpHandler, ClaudeToolFormatter
 from anthropic.types import (
     Message as AnthropicMessage,
     ToolUseBlock,
@@ -159,7 +158,6 @@ class ClaudeAgent:
                         tool_result_data = await mcp_handler.call_tool(
                             current_tool_name,
                             tool_input,
-                            current_tool_use_id,
                         )
                         log_msg = (
                             f"Tool {current_tool_name} result received (continue). "
@@ -250,7 +248,7 @@ class ClaudeAgent:
             )
             return response
 
-        result_data = await mcp_handler.call_tool(tool_name, tool_args, tool_use_id)
+        result_data = await mcp_handler.call_tool(tool_name, tool_args)
 
         if claude_messages and claude_messages[-1]["role"] == "assistant":
             current_content = claude_messages[-1].get("content", [])
@@ -301,130 +299,114 @@ class ClaudeAgent:
         final_text_parts = []
         call_count = 0
 
-        async with AsyncExitStack() as exit_stack:
-            available_tools = []
-            try:
-                if self.mcp_handler:
-                    await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools()
-                    available_tools = self.mcp_handler.format_tools_for_claude(
-                        mcp_tools
-                    )
-                else:
-                    logger.warning("McpHandler not provided, tool use disabled.")
+        available_tools = ClaudeToolFormatter.format(self.mcp_handler.tools)
+        try:
+            logger.info("Sending initial message to Claude with tools...")
+            response = await self.client.messages.create(
+                messages=claude_messages,
+                model=self.model,
+                max_tokens=self.MAX_TOKENS,
+                tools=available_tools,
+            )
+            logger.info("Initial response received.")
 
-                logger.info("Sending initial message to Claude with tools...")
-                response = await self.client.messages.create(
-                    messages=claude_messages,
-                    model=self.model,
-                    max_tokens=self.MAX_TOKENS,
-                    tools=available_tools,
+            while call_count < config.MAX_REQUEST_COUNT:
+                stop_reason = response.stop_reason
+                assistant_responses_content = []
+                tool_use_occurred = False
+
+                logger.debug(
+                    f"Processing response turn {call_count + 1}. Stop reason: {stop_reason}"
                 )
-                logger.info("Initial response received.")
 
-                while call_count < config.MAX_REQUEST_COUNT:
-                    stop_reason = response.stop_reason
-                    assistant_responses_content = []
-                    tool_use_occurred = False
+                for content_block in response.content:
+                    if content_block.type == "text":
+                        logger.info("Received text block.")
+                        text_block = cast(TextBlock, content_block)
+                        final_text_parts.append(text_block.text)
+                        assistant_responses_content.append(text_block.model_dump())
+                    elif content_block.type == "tool_use":
+                        logger.info(f"Received tool use request: {content_block.name}")
+                        tool_use_block = cast(ToolUseBlock, content_block)
+                        assistant_responses_content.append(tool_use_block.model_dump())
 
-                    logger.debug(
-                        f"Processing response turn {call_count + 1}. Stop reason: {stop_reason}"
-                    )
+                        claude_messages.append(
+                            {
+                                "role": "assistant",
+                                "content": assistant_responses_content,
+                            }
+                        )
 
-                    for content_block in response.content:
-                        if content_block.type == "text":
-                            logger.info("Received text block.")
-                            text_block = cast(TextBlock, content_block)
-                            final_text_parts.append(text_block.text)
-                            assistant_responses_content.append(text_block.model_dump())
-                        elif content_block.type == "tool_use":
-                            logger.info(
-                                f"Received tool use request: {content_block.name}"
-                            )
-                            tool_use_block = cast(ToolUseBlock, content_block)
-                            assistant_responses_content.append(
-                                tool_use_block.model_dump()
-                            )
+                        response = await self._handle_tool_use(
+                            self.mcp_handler,
+                            tool_use_block,
+                            claude_messages,
+                            available_tools,
+                        )
+                        tool_use_occurred = True
+                        break  # Break inner loop to process new response
+                else:
+                    if assistant_responses_content:
+                        claude_messages.append(
+                            {
+                                "role": "assistant",
+                                "content": assistant_responses_content,
+                            }
+                        )
 
-                            claude_messages.append(
-                                {
-                                    "role": "assistant",
-                                    "content": assistant_responses_content,
-                                }
-                            )
-
-                            response = await self._handle_tool_use(
-                                self.mcp_handler,
-                                tool_use_block,
-                                claude_messages,
-                                available_tools,
-                            )
-                            tool_use_occurred = True
-                            break  # Break inner loop to process new response
-                    else:
-                        if assistant_responses_content:
-                            claude_messages.append(
-                                {
-                                    "role": "assistant",
-                                    "content": assistant_responses_content,
-                                }
-                            )
-
-                        if stop_reason in ["end_turn", "max_tokens", "stop_sequence"]:
-                            logger.info(
-                                f"Stopping loop. Final stop reason: {stop_reason}"
-                            )
-                            break
-                        elif stop_reason == "tool_use":
-                            logger.warning(
-                                "Reached end of content blocks, but stop_reason is 'tool_use'. "
-                                + "This might indicate an issue."
-                            )
-                            break
-
-                    if tool_use_occurred:
-                        logger.debug("Continuing loop after handling tool use.")
-                        call_count += 1
-                        if call_count >= config.MAX_REQUEST_COUNT:
-                            logger.warning("Reached max request count after tool use.")
-                            break
-                        continue
-
-                    if not tool_use_occurred and stop_reason not in [
-                        "end_turn",
-                        "max_tokens",
-                        "stop_sequence",
-                        "tool_use",
-                    ]:
+                    if stop_reason in ["end_turn", "max_tokens", "stop_sequence"]:
+                        logger.info(f"Stopping loop. Final stop reason: {stop_reason}")
+                        break
+                    elif stop_reason == "tool_use":
                         logger.warning(
-                            f"Loop continued unexpectedly with non-terminal stop_reason: {stop_reason}"
+                            "Reached end of content blocks, but stop_reason is 'tool_use'. "
+                            + "This might indicate an issue."
                         )
                         break
 
+                if tool_use_occurred:
+                    logger.debug("Continuing loop after handling tool use.")
                     call_count += 1
                     if call_count >= config.MAX_REQUEST_COUNT:
-                        logger.warning("Reached max request count.")
+                        logger.warning("Reached max request count after tool use.")
                         break
+                    continue
 
-            except anthropic.APIConnectionError as e:
-                logger.error(f"Anthropic API connection error: {e}", exc_info=True)
-                return f"API Connection Error: {e}"
-            except anthropic.RateLimitError as e:
-                logger.error(f"Anthropic rate limit exceeded: {e}", exc_info=True)
-                return f"Rate Limit Exceeded: {e}"
-            except anthropic.APIStatusError as e:
-                logger.error(
-                    f"Anthropic API status error: {e.status_code} - {e.response}",
-                    exc_info=True,
-                )
-                return f"API Error {e.status_code}: {e.message}"
-            except Exception as e:
-                logger.error(f"Error during Claude request: {e}", exc_info=True)
-                return f"An error occurred: {e}"
-            finally:
-                logger.info(
-                    "Non-streaming request finished or errored. Exit stack will close."
-                )
+                if not tool_use_occurred and stop_reason not in [
+                    "end_turn",
+                    "max_tokens",
+                    "stop_sequence",
+                    "tool_use",
+                ]:
+                    logger.warning(
+                        f"Loop continued unexpectedly with non-terminal stop_reason: {stop_reason}"
+                    )
+                    break
+
+                call_count += 1
+                if call_count >= config.MAX_REQUEST_COUNT:
+                    logger.warning("Reached max request count.")
+                    break
+
+        except anthropic.APIConnectionError as e:
+            logger.error(f"Anthropic API connection error: {e}", exc_info=True)
+            return f"API Connection Error: {e}"
+        except anthropic.RateLimitError as e:
+            logger.error(f"Anthropic rate limit exceeded: {e}", exc_info=True)
+            return f"Rate Limit Exceeded: {e}"
+        except anthropic.APIStatusError as e:
+            logger.error(
+                f"Anthropic API status error: {e.status_code} - {e.response}",
+                exc_info=True,
+            )
+            return f"API Error {e.status_code}: {e.message}"
+        except Exception as e:
+            logger.error(f"Error during Claude request: {e}", exc_info=True)
+            return f"An error occurred: {e}"
+        finally:
+            logger.info(
+                "Non-streaming request finished or errored. Exit stack will close."
+            )
 
         content_text = "\n".join(final_text_parts).strip()
         assistant_had_content = any(
@@ -451,46 +433,32 @@ class ClaudeAgent:
         logger.info("Starting streaming request with MCP support...")
         claude_messages = [self._construct_request(m) for m in messages]
 
-        async with AsyncExitStack() as exit_stack:
-            available_tools = []
-            try:
-                if self.mcp_handler:
-                    await self.mcp_handler.connect(exit_stack)
-                    mcp_tools = await self.mcp_handler.list_tools()
-                    available_tools = self.mcp_handler.format_tools_for_claude(
-                        mcp_tools
-                    )
-                else:
-                    logger.warning(
-                        "McpHandler not provided, tool use disabled for stream."
-                    )
+        available_tools = ClaudeToolFormatter.format(self.mcp_handler.tools)
+        try:
+            # Initial stream call, passing the session and handler
+            async for chunk in self._continue_stream(
+                claude_messages,
+                available_tools,
+                self.mcp_handler,
+            ):
+                yield chunk
 
-                # Initial stream call, passing the session and handler
-                async for chunk in self._continue_stream(
-                    claude_messages,
-                    available_tools,
-                    self.mcp_handler,
-                ):
-                    yield chunk
-
-            except anthropic.APIConnectionError as e:
-                logger.error(f"Anthropic API connection error: {e}", exc_info=True)
-                yield f"\nAPI Connection Error: {e}"
-            except anthropic.RateLimitError as e:
-                logger.error(f"Anthropic rate limit exceeded: {e}", exc_info=True)
-                yield f"\nRate Limit Exceeded: {e}"
-            except anthropic.APIStatusError as e:
-                logger.error(
-                    f"Anthropic API status error: {e.status_code} - {e.response}",
-                    exc_info=True,
-                )
-                yield f"\nAPI Error {e.status_code}: {e.message}"
-            except Exception as e:
-                logger.error(
-                    f"Error during Claude streaming request: {e}", exc_info=True
-                )
-                yield f"\nAn error occurred during streaming: {e}"
-            finally:
-                logger.info(
-                    "Top-level streaming request finished or errored. Exit stack will close."
-                )
+        except anthropic.APIConnectionError as e:
+            logger.error(f"Anthropic API connection error: {e}", exc_info=True)
+            yield f"\nAPI Connection Error: {e}"
+        except anthropic.RateLimitError as e:
+            logger.error(f"Anthropic rate limit exceeded: {e}", exc_info=True)
+            yield f"\nRate Limit Exceeded: {e}"
+        except anthropic.APIStatusError as e:
+            logger.error(
+                f"Anthropic API status error: {e.status_code} - {e.response}",
+                exc_info=True,
+            )
+            yield f"\nAPI Error {e.status_code}: {e.message}"
+        except Exception as e:
+            logger.error(f"Error during Claude streaming request: {e}", exc_info=True)
+            yield f"\nAn error occurred during streaming: {e}"
+        finally:
+            logger.info(
+                "Top-level streaming request finished or errored. Exit stack will close."
+            )

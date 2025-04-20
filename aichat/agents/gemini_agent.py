@@ -1,7 +1,6 @@
 from enum import StrEnum
 import os
 from typing import Any, AsyncGenerator
-from contextlib import AsyncExitStack
 
 from google import genai
 from google.genai import types
@@ -10,7 +9,7 @@ from loguru import logger
 import config
 from models.role import Role
 from models.message import Message, ContentType
-from .mcp_handler import McpHandler
+from .mcp_handler import McpHandler, GeminiToolFormatter
 
 
 class GeminiModel(StrEnum):
@@ -54,37 +53,80 @@ class GeminiAgent:
 
         return request
 
-    async def _setup_mcp_handler(
-        self, exit_stack: AsyncExitStack
-    ) -> list[dict[str, Any]]:
-        """Sets up the MCP handler for tool calls."""
-        if self.mcp_handler:
-            await self.mcp_handler.connect(exit_stack)
-            mcp_tools = await self.mcp_handler.list_tools()
-            available_tools = self.mcp_handler.format_tools_for_gemini(mcp_tools)
-            return available_tools
-        else:
-            logger.warning("McpHandler not provided, tool use disabled.")
-            return []
-
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Google Gemini...")
 
-        async with AsyncExitStack() as exit_stack:
-            available_tools = await self._setup_mcp_handler(exit_stack)
+        available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
 
-            request_body = [self._construct_request(m) for m in messages]
+        request_body = [self._construct_request(m) for m in messages]
 
-            cnt = 0
-            final_content = []
-            while cnt < config.MAX_REQUEST_COUNT:
-                is_final_response = True
-                content = self.client.models.generate_content(
-                    model=self.model,
-                    contents=request_body,
-                    config=types.GenerateContentConfig(tools=available_tools),
-                )
+        cnt = 0
+        final_content = []
+        while cnt < config.MAX_REQUEST_COUNT:
+            is_final_response = True
+            content = self.client.models.generate_content(
+                model=self.model,
+                contents=request_body,
+                config=types.GenerateContentConfig(tools=available_tools),
+            )
 
+            for candidate in content.candidates:
+                for part in candidate.content.parts:
+                    if part.function_call:
+                        function_call = part.function_call
+                        function_call.name = function_call.name
+                        logger.debug(
+                            f"function_call: {function_call.name}({function_call.args})"
+                        )
+                        result = await self.mcp_handler.call_tool(
+                            function_call.name, args=function_call.args
+                        )
+                        logger.debug(f"Tool result: {result['content']}")
+                        is_final_response = False
+
+                        request_body += [
+                            types.Content(
+                                role="model",
+                                parts=[types.Part(function_call=function_call)],
+                            ),
+                            types.Content(
+                                role="user",
+                                parts=[
+                                    types.Part.from_function_response(
+                                        name=function_call.name,
+                                        response={"result": result},
+                                    )
+                                ],
+                            ),
+                        ]
+                    else:
+                        logger.debug("No function call found in the response.")
+                        logger.info(f"response.text: {content.text}")
+                        final_content.append(part.text)
+            if is_final_response:
+                break
+            cnt += 1
+
+        return " ".join(final_content)
+
+    async def request_streaming(
+        self, messages: list[Message]
+    ) -> AsyncGenerator[str, None]:
+        logger.info("Sending message to Google Gemini with streaming...")
+
+        available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
+
+        request_body = [self._construct_request(m) for m in messages]
+
+        for _ in range(config.MAX_REQUEST_COUNT):
+            is_final_response = True
+            content_stream = self.client.models.generate_content_stream(
+                model=self.model,
+                contents=request_body,
+                config=types.GenerateContentConfig(tools=available_tools),
+            )
+
+            for content in content_stream:
                 for candidate in content.candidates:
                     for part in candidate.content.parts:
                         if part.function_call:
@@ -115,64 +157,6 @@ class GeminiAgent:
                                 ),
                             ]
                         else:
-                            logger.debug("No function call found in the response.")
-                            logger.info(f"response.text: {content.text}")
-                            final_content.append(part.text)
-                if is_final_response:
-                    break
-                cnt += 1
-
-        return " ".join(final_content)
-
-    async def request_streaming(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[str, None]:
-        logger.info("Sending message to Google Gemini with streaming...")
-
-        async with AsyncExitStack() as exit_stack:
-            available_tools = await self._setup_mcp_handler(exit_stack)
-
-            request_body = [self._construct_request(m) for m in messages]
-
-            for _ in range(config.MAX_REQUEST_COUNT):
-                is_final_response = True
-                content_stream = self.client.models.generate_content_stream(
-                    model=self.model,
-                    contents=request_body,
-                    config=types.GenerateContentConfig(tools=available_tools),
-                )
-
-                for content in content_stream:
-                    for candidate in content.candidates:
-                        for part in candidate.content.parts:
-                            if part.function_call:
-                                function_call = part.function_call
-                                function_call.name = function_call.name
-                                logger.debug(
-                                    f"function_call: {function_call.name}({function_call.args})"
-                                )
-                                result = await self.mcp_handler.call_tool(
-                                    function_call.name, args=function_call.args
-                                )
-                                logger.debug(f"Tool result: {result['content']}")
-                                is_final_response = False
-
-                                request_body += [
-                                    types.Content(
-                                        role="model",
-                                        parts=[types.Part(function_call=function_call)],
-                                    ),
-                                    types.Content(
-                                        role="user",
-                                        parts=[
-                                            types.Part.from_function_response(
-                                                name=function_call.name,
-                                                response={"result": result},
-                                            )
-                                        ],
-                                    ),
-                                ]
-                            else:
-                                yield content.text
-                if is_final_response:
-                    break
+                            yield content.text
+            if is_final_response:
+                break
