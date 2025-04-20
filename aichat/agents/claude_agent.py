@@ -157,7 +157,7 @@ class ClaudeAgent:
                             f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
                         )
                         tool_result_data = await mcp_handler.call_tool(
-                            current_tool_name.replace("__", "/"),
+                            current_tool_name,
                             tool_input,
                             current_tool_use_id,
                         )
@@ -218,7 +218,7 @@ class ClaudeAgent:
         available_tools: list[dict[str, Any]],
     ) -> AnthropicMessage:
         """Handles a tool use request from Claude (non-streaming)."""
-        tool_name = tool_use.name.replace("__", "/")
+        tool_name = tool_use.name
         tool_args = tool_use.input
         tool_use_id = tool_use.id
         logger.info(f"Calling tool {tool_name} with args {tool_args}")

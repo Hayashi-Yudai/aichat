@@ -93,7 +93,7 @@ class McpHandler:
                 response = await session.list_tools()
                 for tool in response.tools:
                     prefixed_tool = Tool(
-                        name=f"{server_name}/{tool.name}",
+                        name=f"{server_name}__{tool.name}",
                         description=tool.description,
                         inputSchema=tool.inputSchema,
                     )
@@ -139,9 +139,9 @@ class McpHandler:
                 {
                     "type": "function",
                     "function": {
-                        "name": tool.name.replace("/", "__"),  # Replace '/' with '__'
+                        "name": tool.name,
                         "description": tool.description,
-                        "parameters": params,  # Use potentially modified params
+                        "parameters": params,
                     },
                 }
             )
@@ -175,7 +175,7 @@ class McpHandler:
 
             formatted_tools.append(
                 {
-                    "name": tool.name.replace("/", "__"),
+                    "name": tool.name,
                     "description": tool.description,
                     "input_schema": input_schema,  # Use potentially modified input_schema
                 }
@@ -206,7 +206,7 @@ class McpHandler:
         formatted_tools = []
         for tool in tools:
             tools_dict = {
-                "name": tool.name.replace("/", "__"),
+                "name": tool.name,
                 "description": tool.description,
             }
             parameters = {
@@ -243,21 +243,7 @@ class McpHandler:
         log_id_part = f" (ID: {tool_call_id})" if tool_call_id else ""
         logger.info(f"Attempting to call MCP tool: {name}{log_id_part}")
 
-        try:
-            if "/" not in name:
-                raise ValueError("Tool name does not contain '/' separator.")
-            server_name, actual_tool_name = name.split("/", 1)
-        except ValueError as e:
-            error_content = (
-                f"Error: Invalid tool name format '{name}'. "
-                f"Expected 'server_name/tool_name'. Details: {e}"
-            )
-            logger.error(error_content)
-            return {
-                "tool_use_id": tool_call_id,
-                "content": error_content,
-                "is_error": True,
-            }
+        server_name, actual_tool_name = name.split("__", 1)
 
         session = self.sessions.get(server_name)
         if not session:

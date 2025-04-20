@@ -113,7 +113,7 @@ class OpenAIAgent:
                     tool_results = []
                     for tool_call in response_message.tool_calls:
                         openai_tool_name = tool_call.function.name
-                        mcp_tool_name = openai_tool_name.replace("__", "/")
+                        mcp_tool_name = openai_tool_name
                         tool_args_str = tool_call.function.arguments
                         tool_call_id = tool_call.id
                         logger.info(
@@ -226,7 +226,7 @@ class OpenAIAgent:
                     logger.debug(f"Tool Args: {tool_args}")
 
                     result = await self.mcp_handler.call_tool(
-                        tool_name.replace("__", "/"), args=tool_args_dict
+                        tool_name, args=tool_args_dict
                     )
 
                     prompt.append(

@@ -89,7 +89,7 @@ class GeminiAgent:
                     for part in candidate.content.parts:
                         if part.function_call:
                             function_call = part.function_call
-                            function_call.name = function_call.name.replace("__", "/")
+                            function_call.name = function_call.name
                             logger.debug(
                                 f"function_call: {function_call.name}({function_call.args})"
                             )
@@ -148,9 +148,7 @@ class GeminiAgent:
                         for part in candidate.content.parts:
                             if part.function_call:
                                 function_call = part.function_call
-                                function_call.name = function_call.name.replace(
-                                    "__", "/"
-                                )
+                                function_call.name = function_call.name
                                 logger.debug(
                                     f"function_call: {function_call.name}({function_call.args})"
                                 )
