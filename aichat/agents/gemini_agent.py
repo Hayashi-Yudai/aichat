@@ -86,12 +86,12 @@ class GeminiAgent:
                             )
                         )
 
+                        is_final_response = False
                         try:
                             result = await self.mcp_handler.call_tool(
                                 function_call.name, args=function_call.args
                             )
                             logger.debug(f"Tool result: {result['content']}")
-                            is_final_response = False
 
                             request_body.append(
                                 types.Content(
