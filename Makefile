@@ -1,5 +1,5 @@
-SERVERS_JSON_FILE = aichat/agents/servers.json
-SERVERS_JSON_TPL = aichat/agents/servers.json.tpl
+SERVERS_JSON_FILE = aichat/agents/mcp_tools/servers.json
+SERVERS_JSON_TPL = aichat/agents/mcp_tools/servers.json.tpl
 
 .PHONY: run clean
 
