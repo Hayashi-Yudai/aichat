@@ -93,7 +93,7 @@ class _ChatMessageList(ft.ListView):
         self.controller.add_new_message(self.controls, message)
 
     def update_message_streamly(self, topic: Topics, message: Message):
-        logger.debug(f"{self.__class__.__name__} received topic: {topic}")
+        # logger.debug(f"{self.__class__.__name__} received topic: {topic}")
         self.controller.update_message_streamly(self.controls, message)
 
     def restore_past_chat(self, topic: Topics, chat_id: str):
