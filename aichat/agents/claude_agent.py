@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator, cast
 
 from loguru import logger
 import anthropic
+from mcp.shared.exceptions import McpError
 
 from .mcp_tools.mcp_handler import McpHandler, ClaudeToolFormatter
 from anthropic.types import (
@@ -155,10 +156,6 @@ class ClaudeAgent:
                         logger.info(
                             f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
                         )
-                        tool_result_data = await mcp_handler.call_tool(
-                            current_tool_name,
-                            tool_input,
-                        )
                         log_msg = (
                             f"Tool {current_tool_name} result received (continue). "
                         )
@@ -170,16 +167,33 @@ class ClaudeAgent:
                                 "content": assistant_message_content,
                             }
                         )
-                        tool_result_message = {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "tool_result",
-                                    "tool_use_id": current_tool_use_id,
-                                    "content": tool_result_data["content"],
-                                }
-                            ],
-                        }
+                        try:
+                            tool_result_data = await mcp_handler.call_tool(
+                                current_tool_name,
+                                tool_input,
+                            )
+                            tool_result_message = {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": current_tool_use_id,
+                                        "content": tool_result_data["content"],
+                                    }
+                                ],
+                            }
+                        except McpError as e:
+                            logger.error(f"Error calling tool: {e}")
+                            tool_result_message = {
+                                "role": "user",
+                                "content": [
+                                    {
+                                        "type": "tool_result",
+                                        "tool_use_id": current_tool_use_id,
+                                        "content": str(e),
+                                    }
+                                ],
+                            }
                         messages.append(tool_result_message)
 
                         # Reset state

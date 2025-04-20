@@ -8,6 +8,7 @@ from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
+from mcp.shared.exceptions import McpError
 
 from .mcp_tools.mcp_handler import McpHandler, OpenAIToolFormatter
 import config
@@ -209,10 +210,6 @@ class OpenAIAgent:
                 logger.debug(f"Tool Name: {tool_name}")
                 logger.debug(f"Tool Args: {tool_args}")
 
-                result = await self.mcp_handler.call_tool(
-                    tool_name, args=tool_args_dict
-                )
-
                 prompt.append(
                     {
                         "role": "assistant",
@@ -228,13 +225,28 @@ class OpenAIAgent:
                         ],
                     }
                 )
-                prompt.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_id,
-                        "content": result.get("content", ""),
-                    }
-                )
+
+                try:
+                    result = await self.mcp_handler.call_tool(
+                        tool_name, args=tool_args_dict
+                    )
+                    prompt.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": result.get("content", ""),
+                        }
+                    )
+                except McpError as e:
+                    logger.error(f"Error calling tool: {e}")
+                    prompt.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": e,
+                        }
+                    )
+
             elif finish_reason == "stop":
                 logger.debug("Finished streaming.")
                 break

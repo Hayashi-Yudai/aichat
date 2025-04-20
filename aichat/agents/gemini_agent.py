@@ -5,6 +5,7 @@ from typing import Any, AsyncGenerator
 from google import genai
 from google.genai import types
 from loguru import logger
+from mcp.shared.exceptions import McpError
 
 import config
 from models.role import Role
@@ -78,27 +79,44 @@ class GeminiAgent:
                         logger.debug(
                             f"function_call: {function_call.name}({function_call.args})"
                         )
-                        result = await self.mcp_handler.call_tool(
-                            function_call.name, args=function_call.args
-                        )
-                        logger.debug(f"Tool result: {result['content']}")
-                        is_final_response = False
-
-                        request_body += [
+                        request_body.append(
                             types.Content(
                                 role="model",
                                 parts=[types.Part(function_call=function_call)],
-                            ),
-                            types.Content(
-                                role="user",
-                                parts=[
-                                    types.Part.from_function_response(
-                                        name=function_call.name,
-                                        response={"result": result},
-                                    )
-                                ],
-                            ),
-                        ]
+                            )
+                        )
+
+                        try:
+                            result = await self.mcp_handler.call_tool(
+                                function_call.name, args=function_call.args
+                            )
+                            logger.debug(f"Tool result: {result['content']}")
+                            is_final_response = False
+
+                            request_body.append(
+                                types.Content(
+                                    role="user",
+                                    parts=[
+                                        types.Part.from_function_response(
+                                            name=function_call.name,
+                                            response={"result": result},
+                                        )
+                                    ],
+                                ),
+                            )
+                        except McpError as e:
+                            logger.error(f"Error calling tool: {e}")
+                            request_body.append(
+                                types.Content(
+                                    role="user",
+                                    parts=[
+                                        types.Part.from_function_response(
+                                            name=function_call.name,
+                                            response={"result": str(e)},
+                                        )
+                                    ],
+                                ),
+                            )
                     else:
                         logger.debug("No function call found in the response.")
                         logger.info(f"response.text: {content.text}")
