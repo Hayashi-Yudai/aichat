@@ -1,4 +1,5 @@
 import itertools
+import sys  # Add sys import
 from enum import StrEnum
 
 from .agent import Agent
@@ -12,19 +13,22 @@ from .mlx_model_agent import MLXAgent, MLXModel
 from .dummy_agent import DummyAgent, DummyModel
 
 
-all_models = list(
-    itertools.chain.from_iterable(
-        [
-            OpenAIModel,
-            GeminiModel,
-            ClaudeModel,
-            DeepSeekModel,
-            LocalModel,
-            MLXModel,
-            DummyModel,
-        ]
-    )
-)
+# Base models available on all platforms
+base_models = [
+    OpenAIModel,
+    GeminiModel,
+    ClaudeModel,
+    DeepSeekModel,
+    LocalModel,
+    DummyModel,
+]
+
+# Add MLXModel only if on macOS
+if sys.platform == "darwin":
+    base_models.append(MLXModel)
+
+all_models = list(itertools.chain.from_iterable(base_models))
+
 
 # Define the path to the MCP server script relative to this __init__.py
 # This assumes a single, shared MCP handler instance for all agents needing it.
