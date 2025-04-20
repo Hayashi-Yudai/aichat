@@ -1,4 +1,5 @@
 from enum import StrEnum
+import json
 import os
 
 from typing import Any, AsyncGenerator
@@ -6,9 +7,8 @@ from contextlib import AsyncExitStack
 from loguru import logger
 from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
-from openai.types.chat.chat_completion_chunk import ChatCompletionChunk, ChoiceDelta
+from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
-from openai.types.chat.chat_completion_chunk import ChoiceDeltaToolCall
 
 from .mcp_handler import McpHandler
 import config
@@ -169,170 +169,91 @@ class OpenAIAgent:
         logger.info("Successfully received response from OpenAI.")
         return content_text
 
-    def _prepare_tool_calls(
-        self,
-        delta: ChoiceDelta,
-        tool_calls: list,
-        tool_args_str: list,
-    ) -> tuple[dict[int, ChoiceDeltaToolCall], dict[int, str]]:
-        for tool_call_chunk in delta.tool_calls:
-            index = tool_call_chunk.index
-            if index not in tool_calls:
-                tool_calls[index] = tool_call_chunk
-                tool_args_str[index] = ""
-            else:
-                if tool_call_chunk.function and tool_call_chunk.function.arguments:
-                    tool_args_str[index] += tool_call_chunk.function.arguments
-
-        return tool_calls, tool_args_str
-
-    async def _continue_stream(
-        self,
-        messages: list[dict[str, Any]],
-        available_tools: list[dict[str, Any]],
-        mcp_handler: McpHandler | None,
-    ) -> AsyncGenerator[str, None]:
-        """Helper function to manage streaming and tool calls with OpenAI."""
-        logger.info(f"Starting/Continuing stream with {len(messages)} messages.")
-        current_tool_calls: dict[int, ChoiceDeltaToolCall] = {}
-        current_tool_args_str: dict[int, str] = {}
-
-        stream: AsyncStream[ChatCompletionChunk] = (
-            await self.client.chat.completions.create(
-                messages=messages,
-                model=self.model,
-                tools=available_tools,
-                tool_choice="auto",
-                stream=True,
-            )
-        )
-        async for chunk in stream:
-            delta = chunk.choices[0].delta
-            finish_reason = chunk.choices[0].finish_reason
-
-            if delta and delta.content:
-                yield delta.content
-
-            if delta and delta.tool_calls:
-                current_tool_calls, current_tool_args_str = self._prepare_tool_calls(
-                    delta, current_tool_calls, current_tool_args_str
-                )
-
-            if finish_reason:
-                logger.info(f"Stream finished with reason: {finish_reason}")
-
-                if finish_reason == "stop":
-                    logger.info("Stream finished normally.")
-                    return
-                elif finish_reason == "length":
-                    logger.warning("Stream finished due to max tokens.")
-                    yield "\n[Warning: Response truncated due to length limit]"
-                    return
-                elif finish_reason == "tool_calls":
-                    logger.info("Processing tool calls after stream finished.")
-                    if not mcp_handler:
-                        logger.error(
-                            "MCP handler not available for tool call processing in stream."
-                        )
-                        yield "\n[Error: Tool call processing failed - MCP handler unavailable]"
-                        return
-
-                    assistant_message_tool_calls = []
-                    for index, tool_call_start in current_tool_calls.items():
-                        if not tool_call_start.function:
-                            continue
-
-                        assistant_message_tool_calls.append(
-                            {
-                                "id": tool_call_start.id,
-                                "type": "function",
-                                "function": {
-                                    "name": tool_call_start.function.name,
-                                    "arguments": current_tool_args_str.get(index, ""),
-                                },
-                            }
-                        )
-
-                    if assistant_message_tool_calls:
-                        messages.append(
-                            {
-                                "role": "assistant",
-                                "tool_calls": assistant_message_tool_calls,
-                            }
-                        )
-                    else:
-                        logger.warning(
-                            "Finish reason was 'tool_calls' but no complete tool calls were parsed."
-                        )
-                        yield "\n[Error: Tool call processing failed]"
-                        return
-
-                    tool_results_for_next_call = []
-                    for index, tool_call_start in current_tool_calls.items():
-                        tool_call_id = tool_call_start.id
-                        if (
-                            not tool_call_start.function
-                            or not tool_call_start.function.name
-                        ):
-                            logger.error(
-                                f"Tool call [{index}] missing function name or ID."
-                            )
-                            continue  # Skip this malformed tool call
-
-                        openai_tool_name = tool_call_start.function.name
-                        mcp_tool_name = openai_tool_name.replace("__", "/")
-                        full_args_str = current_tool_args_str.get(index, "")
-                        exec_log = (
-                            f"Executing tool call [{index}]: {openai_tool_name} "
-                            f"(as {mcp_tool_name}), ID: {tool_call_id}"
-                        )
-                        args_log = f"Args: {full_args_str}"
-                        logger.info(exec_log)
-                        logger.info(args_log)
-
-                        # Use McpHandler to call the tool with the original name
-                        tool_result = await mcp_handler.call_tool(
-                            mcp_tool_name, full_args_str, tool_call_id
-                        )
-                        tool_result_formatted = {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": tool_result.get("content", ""),
-                        }
-                        tool_results_for_next_call.append(tool_result_formatted)
-
-                    if tool_results_for_next_call:
-                        messages.extend(tool_results_for_next_call)
-                        logger.info("Continuing stream recursively after tool calls...")
-                        async for chunk in self._continue_stream(
-                            messages, available_tools, mcp_handler
-                        ):
-                            yield chunk
-                    else:
-                        logger.warning(
-                            "Tool calls finished, but no results generated for next call."
-                        )
-
-                    return
-                else:
-                    logger.warning(
-                        f"Stream finished with unhandled reason: {finish_reason}"
-                    )
-                    return
-
     async def request_streaming(
         self, messages: list[Message]
     ) -> AsyncGenerator[str, None]:
         """Initiates the streaming request with MCP support."""
         logger.info("Starting streaming request with OpenAI and MCP support...")
-        openai_messages = [self._construct_request(m) for m in messages]
+        prompt = [self._construct_request(m) for m in messages]
         available_tools = []
 
         async with AsyncExitStack() as exit_stack:
             available_tools = await self._setup_mcp_handler(exit_stack)
 
-            # Start the potentially recursive streaming process, passing handler
-            async for chunk in self._continue_stream(
-                openai_messages, available_tools, self.mcp_handler
-            ):
-                yield chunk
+            for _ in range(config.MAX_REQUEST_COUNT):
+                is_final_response = True
+                request_body = {
+                    "model": self.model,
+                    "messages": prompt,
+                    "tools": available_tools,
+                    "tool_choice": "auto",
+                    "stream": True,
+                }
+
+                stream: AsyncStream[ChatCompletionChunk] = (
+                    await self.client.chat.completions.create(**request_body)
+                )
+
+                tool_id = None
+                tool_name = None
+                tool_args = None
+
+                async for chunk in stream:
+                    for choice in chunk.choices:
+                        delta = choice.delta
+                        finish_reason = choice.finish_reason
+
+                        if delta.tool_calls:
+                            for tool_call in delta.tool_calls:
+                                if tool_id is None:
+                                    tool_id = tool_call.id
+                                if tool_name is None:
+                                    tool_name = tool_call.function.name
+
+                                if tool_args is None:
+                                    tool_args = tool_call.function.arguments
+                                else:
+                                    tool_args += tool_call.function.arguments
+                        if delta.content:
+                            yield delta.content
+
+                if finish_reason == "tool_calls":
+                    is_final_response = False
+
+                    tool_args_dict = json.loads(tool_args)
+                    logger.debug(f"Tool ID: {tool_id}")
+                    logger.debug(f"Tool Name: {tool_name}")
+                    logger.debug(f"Tool Args: {tool_args}")
+
+                    result = await self.mcp_handler.call_tool(
+                        tool_name.replace("__", "/"), args=tool_args_dict
+                    )
+
+                    prompt.append(
+                        {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {
+                                    "id": tool_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": tool_name,
+                                        "arguments": tool_args,
+                                    },
+                                }
+                            ],
+                        }
+                    )
+                    prompt.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_id,
+                            "content": result.get("content", ""),
+                        }
+                    )
+                elif finish_reason == "stop":
+                    logger.debug("Finished streaming.")
+                    break
+
+                if is_final_response:
+                    break
