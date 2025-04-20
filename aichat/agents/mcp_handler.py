@@ -107,7 +107,6 @@ class McpHandler:
                     exc_info=True,
                 )
 
-        logger.info(f"Total tools found across all servers: {len(all_tools)}")
         return all_tools
 
     def format_tools_for_openai(self, tools: list[Tool]) -> list[dict[str, Any]]:
@@ -223,12 +222,7 @@ class McpHandler:
 
         return formatted_tools
 
-    async def call_tool(
-        self,
-        name: str,
-        args: dict | str,
-        tool_call_id: str | None = None,
-    ) -> dict[str, Any]:
+    async def call_tool(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
         """
         Calls a specific tool on the appropriate MCP server based on the prefixed name.
 
@@ -240,8 +234,7 @@ class McpHandler:
         Returns:
             A dictionary representing the tool result message.
         """
-        log_id_part = f" (ID: {tool_call_id})" if tool_call_id else ""
-        logger.info(f"Attempting to call MCP tool: {name}{log_id_part}")
+        logger.info(f"Attempting to call MCP tool: {name}")
 
         server_name, actual_tool_name = name.split("__", 1)
 
@@ -252,41 +245,12 @@ class McpHandler:
                 f"Cannot call tool '{actual_tool_name}'."
             )
             logger.error(error_content)
-            return {
-                "tool_use_id": tool_call_id,
-                "content": error_content,
-            }
+            return {"content": error_content}
 
         logger.info(
-            f"Routing tool call to server: {server_name}, tool: {actual_tool_name}"
+            f"Calling MCP tool: {actual_tool_name} on server {server_name} with args: {args}"
         )
-
-        tool_args_dict = {}
-        if isinstance(args, str):
-            try:
-                tool_args_dict = json.loads(args)
-            except json.JSONDecodeError:
-                logger.warning(
-                    f"Argument for tool {name} is a string but not valid JSON: {args}. Assuming dict required."
-                )
-                raise TypeError("Tool arguments must be a JSON string or a dictionary.")
-
-        elif isinstance(args, dict):
-            tool_args_dict = args
-        else:
-            raise TypeError("Tool arguments must be a JSON string or a dictionary.")
-
-        logger.info(
-            f"Calling MCP tool: {actual_tool_name} on server {server_name} with args: {tool_args_dict}"
-        )
-        # Call the tool using the actual_tool_name on the specific server's session
-        result = await session.call_tool(actual_tool_name, tool_args_dict)
-
-        log_msg = (
-            f"Tool {actual_tool_name} on server {server_name} executed. "
-            f"Content available: {bool(result.content)}. "
-        )
-        logger.info(log_msg)
+        result = await session.call_tool(actual_tool_name, args)
 
         content_text = ""
         if result.content:
@@ -297,7 +261,4 @@ class McpHandler:
                 elif all(isinstance(item, str) for item in result.content):
                     content_text = "\n".join(result.content)
 
-        return {
-            "tool_use_id": tool_call_id,
-            "content": content_text,
-        }
+        return {"content": content_text}

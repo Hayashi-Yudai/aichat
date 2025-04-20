@@ -175,7 +175,6 @@ class OpenAIAgent:
         """Initiates the streaming request with MCP support."""
         logger.info("Starting streaming request with OpenAI and MCP support...")
         prompt = [self._construct_request(m) for m in messages]
-        available_tools = []
 
         async with AsyncExitStack() as exit_stack:
             available_tools = await self._setup_mcp_handler(exit_stack)

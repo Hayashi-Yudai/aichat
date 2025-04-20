@@ -134,8 +134,7 @@ class GeminiAgent:
 
             request_body = [self._construct_request(m) for m in messages]
 
-            cnt = 0
-            while cnt < config.MAX_REQUEST_COUNT:
+            for _ in range(config.MAX_REQUEST_COUNT):
                 is_final_response = True
                 content_stream = self.client.models.generate_content_stream(
                     model=self.model,
@@ -177,5 +176,3 @@ class GeminiAgent:
                                 yield content.text
                 if is_final_response:
                     break
-
-                cnt += 1
