@@ -9,7 +9,7 @@ from loguru import logger
 import config
 from models.role import Role
 from models.message import Message, ContentType
-from .mcp_handler import McpHandler, GeminiToolFormatter
+from .mcp_tools.mcp_handler import McpHandler, GeminiToolFormatter
 
 
 class GeminiModel(StrEnum):

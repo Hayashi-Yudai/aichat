@@ -7,7 +7,7 @@ from typing import Any, AsyncGenerator, cast
 from loguru import logger
 import anthropic
 
-from .mcp_handler import McpHandler, ClaudeToolFormatter
+from .mcp_tools.mcp_handler import McpHandler, ClaudeToolFormatter
 from anthropic.types import (
     Message as AnthropicMessage,
     ToolUseBlock,

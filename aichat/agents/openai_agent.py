@@ -9,7 +9,7 @@ from openai._streaming import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
 
-from .mcp_handler import McpHandler, OpenAIToolFormatter
+from .mcp_tools.mcp_handler import McpHandler, OpenAIToolFormatter
 import config
 from models.role import Role
 from models.message import Message, ContentType
@@ -19,6 +19,7 @@ class OpenAIModel(StrEnum):
     GPT4OMINI = "gpt-4o-mini"
     GPT4O = "gpt-4o"
     O1 = "o1"
+    O3 = "o3"
     # O3MINI = "o3-mini"
     O4MINI = "o4-mini"
     # GPT45PREVIEW = "gpt-4.5-preview"
