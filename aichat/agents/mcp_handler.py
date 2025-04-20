@@ -18,7 +18,7 @@ class McpHandler:
         self.sessions: Dict[str, ClientSession] = {}
         self.server_configs: Dict[str, Dict] = {}
 
-    async def connect(self, exit_stack: AsyncExitStack) -> None:  # Return type changed
+    async def connect(self, exit_stack: AsyncExitStack) -> None:
         """
         Connects to all MCP servers defined in servers.json using a provided AsyncExitStack.
 
@@ -79,7 +79,7 @@ class McpHandler:
                     f"Failed to connect to MCP server {server_name}: {e}", exc_info=True
                 )
 
-    async def list_tools(self) -> list[Tool]:  # Removed session argument
+    async def list_tools(self) -> list[Tool]:
         """
         Lists available tools from all connected MCP servers, prefixing names.
 
@@ -225,7 +225,7 @@ class McpHandler:
 
     async def call_tool(
         self,
-        name: str,  # Expected format: "server_name/tool_name"
+        name: str,
         args: dict | str,
         tool_call_id: str | None = None,
     ) -> dict[str, Any]:
@@ -233,7 +233,7 @@ class McpHandler:
         Calls a specific tool on the appropriate MCP server based on the prefixed name.
 
         Args:
-            name: The prefixed name of the tool to call (e.g., 'server_name/tool_name').
+            name: The prefixed name of the tool to call (e.g., '{server_name}__{tool_name}').
             args: The arguments for the tool (JSON string or dictionary).
             tool_call_id: The unique ID for this tool call instance (optional).
 
