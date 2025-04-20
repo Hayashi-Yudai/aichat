@@ -163,7 +163,6 @@ class ClaudeAgent:
                         )
                         log_msg = (
                             f"Tool {current_tool_name} result received (continue). "
-                            f"Is error: {tool_result_data['is_error']}"
                         )
                         logger.info(log_msg)
 
@@ -180,7 +179,6 @@ class ClaudeAgent:
                                     "type": "tool_result",
                                     "tool_use_id": current_tool_use_id,
                                     "content": tool_result_data["content"],
-                                    "is_error": tool_result_data["is_error"],
                                 }
                             ],
                         }
@@ -240,7 +238,6 @@ class ClaudeAgent:
                             "type": "tool_result",
                             "tool_use_id": tool_use_id,
                             "content": "Error: MCP handler/session not available.",
-                            "is_error": True,
                         }
                     ],
                 }
@@ -254,7 +251,6 @@ class ClaudeAgent:
             return response
 
         result_data = await mcp_handler.call_tool(tool_name, tool_args, tool_use_id)
-        logger.info(f"Tool {tool_name} executed. Is error={result_data['is_error']}")
 
         if claude_messages and claude_messages[-1]["role"] == "assistant":
             current_content = claude_messages[-1].get("content", [])
@@ -284,7 +280,6 @@ class ClaudeAgent:
                         "type": "tool_result",
                         "tool_use_id": tool_use_id,
                         "content": result_data["content"],
-                        "is_error": result_data["is_error"],
                     }
                 ],
             }

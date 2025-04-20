@@ -269,7 +269,6 @@ class McpHandler:
             return {
                 "tool_use_id": tool_call_id,
                 "content": error_content,
-                "is_error": True,
             }
 
         logger.info(
@@ -277,106 +276,42 @@ class McpHandler:
         )
 
         tool_args_dict = {}
-        try:
-            if isinstance(args, str):
-                try:
-                    tool_args_dict = json.loads(args)
-                except json.JSONDecodeError:
-                    logger.warning(
-                        f"Argument for tool {name} is a string but not valid JSON: {args}. Assuming dict required."
-                    )
-                    raise TypeError(
-                        "Tool arguments must be a JSON string or a dictionary."
-                    )
-
-            elif isinstance(args, dict):
-                tool_args_dict = args
-            else:
+        if isinstance(args, str):
+            try:
+                tool_args_dict = json.loads(args)
+            except json.JSONDecodeError:
+                logger.warning(
+                    f"Argument for tool {name} is a string but not valid JSON: {args}. Assuming dict required."
+                )
                 raise TypeError("Tool arguments must be a JSON string or a dictionary.")
 
-            logger.info(
-                f"Calling MCP tool: {actual_tool_name} on server {server_name} with args: {tool_args_dict}"
-            )
-            # Call the tool using the actual_tool_name on the specific server's session
-            result = await session.call_tool(actual_tool_name, tool_args_dict)
+        elif isinstance(args, dict):
+            tool_args_dict = args
+        else:
+            raise TypeError("Tool arguments must be a JSON string or a dictionary.")
 
-            log_msg = (
-                f"Tool {actual_tool_name} on server {server_name} executed. "
-                f"Content available: {bool(result.content)}. "
-                f"Is error: {getattr(result, 'is_error', False)}"
-            )
-            logger.info(log_msg)
+        logger.info(
+            f"Calling MCP tool: {actual_tool_name} on server {server_name} with args: {tool_args_dict}"
+        )
+        # Call the tool using the actual_tool_name on the specific server's session
+        result = await session.call_tool(actual_tool_name, tool_args_dict)
 
-            content_text = ""
-            if result.content:
-                if isinstance(result.content, list) and len(result.content) > 0:
-                    first_part = result.content[0]
-                    if hasattr(first_part, "text") and isinstance(first_part.text, str):
-                        content_text = first_part.text
-                    elif all(isinstance(item, str) for item in result.content):
-                        content_text = "\n".join(result.content)
-                    else:
-                        try:
-                            content_text = str(first_part)
-                            logger.warning(
-                                f"Content list item type unknown ({type(first_part)}), converted first item to string."
-                            )
-                        except Exception:
-                            logger.error(
-                                f"Could not convert content list item to string: {first_part}"
-                            )
-                            content_text = "[Error processing content list]"
+        log_msg = (
+            f"Tool {actual_tool_name} on server {server_name} executed. "
+            f"Content available: {bool(result.content)}. "
+        )
+        logger.info(log_msg)
 
-                elif isinstance(result.content, str):
-                    content_text = result.content
-                else:
-                    try:
-                        content_text = str(result.content)
-                        log_message = (
-                            f"Unexpected content format for tool {actual_tool_name} "
-                            f"on {server_name}: {type(result.content)}. Converted to string."
-                        )
-                        logger.warning(log_message)
-                    except Exception:
-                        logger.error(
-                            f"Could not convert content to string for tool {actual_tool_name} on {server_name}"
-                        )
+        content_text = ""
+        if result.content:
+            if isinstance(result.content, list) and len(result.content) > 0:
+                first_part = result.content[0]
+                if hasattr(first_part, "text") and isinstance(first_part.text, str):
+                    content_text = first_part.text
+                elif all(isinstance(item, str) for item in result.content):
+                    content_text = "\n".join(result.content)
 
-            is_error_flag = getattr(result, "is_error", False)
-
-            return {
-                "tool_use_id": tool_call_id,
-                "content": content_text,
-                "is_error": is_error_flag,
-            }
-        except json.JSONDecodeError:
-            error_content = (
-                f"Error: Invalid JSON arguments received for tool {name}: {args}"
-            )
-            logger.error(f"Failed to decode JSON arguments for tool {name}: {args}")
-            return {
-                "tool_use_id": tool_call_id,
-                "content": error_content,
-                "is_error": True,
-            }
-        except TypeError as e:
-            error_content = f"Error processing arguments for tool {name}: {e}"
-            logger.error(error_content, exc_info=True)
-            return {
-                "tool_use_id": tool_call_id,
-                "content": error_content,
-                "is_error": True,
-            }
-        except Exception as e:
-            error_content = (
-                f"Tool execution error ({server_name}/{actual_tool_name}): {e}"
-            )
-            logger.error(
-                f"Error executing tool {actual_tool_name} on server {server_name}: {e}",
-                exc_info=True,
-            )
-            return {
-                "tool_use_id": tool_call_id,
-                "content": error_content,
-                "is_error": True,
-            }
+        return {
+            "tool_use_id": tool_call_id,
+            "content": content_text,
+        }
