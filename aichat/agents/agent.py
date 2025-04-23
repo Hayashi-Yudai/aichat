@@ -7,7 +7,7 @@ from loguru import logger
 
 import config
 from topics import Topics
-from models.message import Message
+from models.message import Message, ContentType
 from models.role import Role
 
 
@@ -50,17 +50,15 @@ class AgentController:
         self, chat_id: str, messages: list[Message], agent: Agent
     ) -> Message:
         response = ""
-        i = 0
         async for chunk in agent.request_streaming(messages):
             response += chunk
-            response_message = Message.construct_auto(chat_id, response, agent.role)
-            if i == 0:
-                topic = Topics.APPEND_MESSAGE
-            else:
-                topic = Topics.UPDATE_MESSAGE_STREAMLY
+            response_message = Message.construct_auto_file(
+                chat_id, response, response, agent.role, ContentType.TEXT
+            )
 
-            self.page.pubsub.send_all_on_topic(topic, response_message)
-            i += 1
+            self.page.pubsub.send_all_on_topic(
+                Topics.UPDATE_MESSAGE_STREAMLY, response_message
+            )
 
         return response_message
 

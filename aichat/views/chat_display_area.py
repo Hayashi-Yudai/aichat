@@ -7,7 +7,7 @@ from topics import Topics
 
 
 class _ChatMessage(ft.Row):
-    def __init__(self, message: Message):
+    def __init__(self, page: ft.Page, message: Message):
         super().__init__()
 
         self.message = message
@@ -23,6 +23,7 @@ class _ChatMessage(ft.Row):
                     md_style_sheet=ft.MarkdownStyleSheet(
                         blockquote_decoration=ft.BoxDecoration(bgcolor=ft.Colors.GREY)
                     ),
+                    on_tap_link=lambda e: page.launch_url(e.data),
                 )
             case ContentType.PNG | ContentType.JPEG:
                 content = ft.Column(

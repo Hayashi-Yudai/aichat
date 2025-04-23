@@ -21,7 +21,8 @@ class ChatDisplayController:
     def restore_past_chat(self, chat_id: str):
         messages = self._get_all_messages_by_chat_id(chat_id)
         self.page.run_task(
-            self.update_content_callback, [self.item_builder(m) for m in messages]
+            self.update_content_callback,
+            [self.item_builder(self.page, m) for m in messages],
         )
 
     def clear_controls(self):
@@ -29,7 +30,7 @@ class ChatDisplayController:
 
     def add_new_message(self, controls: list[ft.Row], message: Message | list[Message]):
         message = message if isinstance(message, list) else [message]
-        new_controls = controls + [self.item_builder(m) for m in message]
+        new_controls = controls + [self.item_builder(self.page, m) for m in message]
         self.page.run_task(self.update_content_callback, new_controls)
 
         self.page.pubsub.send_all_on_topic(
@@ -43,9 +44,9 @@ class ChatDisplayController:
 
     def update_message_streamly(self, controls: list[ft.Row], message: Message):
         if controls[-1].message.role.avatar_color == message.role.avatar_color:
-            controls[-1] = self.item_builder(message)
+            controls[-1] = self.item_builder(self.page, message)
         else:
-            controls.append(self.item_builder(message))
+            controls.append(self.item_builder(self.page, message))
         self.page.run_task(self.update_content_callback, controls)
 
     def _get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
