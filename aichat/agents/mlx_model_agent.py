@@ -13,6 +13,7 @@ from models.message import Message, ContentType
 class MLXModel(StrEnum):
     GEMMA3_27B_4BIT = "mlx-community/gemma-3-27b-it-4bit"
     DEEPSEEK_R1_32B_4BIT = "mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit"
+    QWEN3_30B_4BIT = "mlx-community/Qwen3-30B-A3B-4bit"
 
 
 class MLXAgent:
@@ -29,6 +30,12 @@ class MLXAgent:
         self.streamer = TextIteratorStreamer(
             self.tokenizer, skip_prompt=True, skip_special_tokens=True
         )
+
+    def __del__(self):
+        del self.client
+        del self.tokenizer
+
+        logger.info("MLX agent deleted.")
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         request = {
