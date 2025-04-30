@@ -78,6 +78,24 @@ class McpHandler:
 
             return {"content": result.content[0].text}
 
+    async def get_prompt(self, name: str, args: dict[str, Any] = None) -> str:
+        server_name, prompt_name = name.split("__", 1)
+        async with AsyncExitStack() as exit_stack:
+            session = await self.connect_with_server_name(server_name, exit_stack)
+            prompt = await session.get_prompt(prompt_name, args)
+            logger.debug(f"Prompt: {prompt.messages[0].content}")
+
+            return prompt.messages[0].content.text
+
+    async def read_resource(self, name: str) -> str:
+        server_name, resource_name = name.split("__", 1)
+        async with AsyncExitStack() as exit_stack:
+            session = await self.connect_with_server_name(server_name, exit_stack)
+            resources = await session.read_resource(resource_name)
+            logger.debug(f"Resource: {resources.contents[0].text}")
+
+            return resources.contents[0].text
+
 
 class GeminiToolFormatter:
     @classmethod
