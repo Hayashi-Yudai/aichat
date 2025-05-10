@@ -1,4 +1,5 @@
 import flet as ft
+from flet.core import padding, border
 from loguru import logger
 
 from models.message import Message, ContentType
@@ -114,6 +115,6 @@ class ChatMessageDisplayContainer(ft.Container):
 
         self.border_radius = 5
         self.expand = True
-        self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
-        self.padding = ft.padding.only(left=15, right=20, top=0, bottom=0)
+        self.border = border.all(0, ft.Colors.TRANSPARENT)
+        self.padding = padding.only(left=15, right=20, top=0, bottom=0)
         self.content = _ChatMessageList(page)
