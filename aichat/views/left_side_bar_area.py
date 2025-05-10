@@ -43,6 +43,10 @@ class ModelSelector(ft.Dropdown):
 
     def on_change_func(self, e: ft.ControlEvent):
         logger.info(f"Agent changed to: {e.data}")
+
+        if self.page.session.contains_key("agent"):
+            self.page.session.remove("agent")
+
         self.page.session.set("agent", get_agent_by_model(e.data))
 
 
