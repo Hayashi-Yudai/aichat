@@ -53,7 +53,7 @@ def get_agent_by_model(model: StrEnum) -> Agent:
         # Assuming LocalAgent does not use McpHandler (adjust if it does)
         return LocalAgent(model)
     elif model in MLXModel:
-        return MLXAgent(model)
+        return MLXAgent(model, mcp_handler=_mcp_handler_instance)
     elif model in DummyModel:
         return DummyAgent(model)
     else:

@@ -1,4 +1,6 @@
 from enum import StrEnum
+import json
+import re
 from typing import Any, AsyncGenerator
 
 from loguru import logger
@@ -8,6 +10,7 @@ from mlx_lm import load, generate, stream_generate
 import config
 from models.role import Role
 from models.message import Message, ContentType
+from .mcp_tools.mcp_handler import McpHandler
 
 
 class MLXModel(StrEnum):
@@ -17,7 +20,7 @@ class MLXModel(StrEnum):
 
 
 class MLXAgent:
-    def __init__(self, model: MLXModel):
+    def __init__(self, model: MLXModel, mcp_handler: McpHandler):
         self.model = model
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
@@ -26,6 +29,7 @@ class MLXAgent:
         self.streamable = True
 
         self.client, self.tokenizer = load(self.model)
+        self.mcp_handler = mcp_handler
 
         self.streamer = TextIteratorStreamer(
             self.tokenizer, skip_prompt=True, skip_special_tokens=True
@@ -74,12 +78,50 @@ class MLXAgent:
     async def request_streaming(
         self, messages: list[Message]
     ) -> AsyncGenerator[str, None]:
-        logger.info("Generate message with gemma in streaming.")
-        request_body = self.tokenizer.apply_chat_template(
-            [self._construct_request(m) for m in messages], add_generation_prompt=True
-        )
+        logger.info("Generate message with mlx-model in streaming.")
+        request_messages = [self._construct_request(m) for m in messages]
 
-        for response in stream_generate(
-            self.client, self.tokenizer, request_body, max_tokens=self.max_tokens
-        ):
-            yield response.text
+        available_tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "parameters": tool.inputSchema,
+                },
+            }
+            for tool in self.mcp_handler.tools
+        ]
+        for _ in range(5):
+            request_body = self.tokenizer.apply_chat_template(
+                request_messages,
+                tools=available_tools,
+                add_generation_prompt=True,
+            )
+
+            all_text = ""
+            for response in stream_generate(
+                self.client, self.tokenizer, request_body, max_tokens=self.max_tokens
+            ):
+                all_text += response.text
+                yield response.text
+
+            # FIXME: たまにjsonのパースに失敗する
+            match_tool = re.search(r"<tool_call>(.*?)</tool_call>", all_text, re.DOTALL)
+            if match_tool:
+                json_str = match_tool.group(1)
+                data = json.loads(json_str)
+                result = await self.mcp_handler.call_tool(
+                    data["name"],
+                    data["arguments"],
+                )
+
+                request_messages.append(
+                    {
+                        "role": "tool",
+                        "name": data["name"],
+                        "content": result["content"],
+                    }
+                )
+            else:
+                break
