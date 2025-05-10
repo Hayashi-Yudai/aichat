@@ -53,7 +53,7 @@ class McpHandler:
         logger.info(f"Connecting to MCP server: {server_name}...")
         if "command" in self._config[server_name]:
             read_stream, write_stream = await exit_stack.enter_async_context(
-                stdio_client(StdioServerParameters(**self._config[server_name]))
+                stdio_client(StdioServerParameters(**self._config[server_name]))  # type: ignore
             )
         elif "url" in self._config[server_name]:
             read_stream, write_stream = await exit_stack.enter_async_context(
@@ -78,7 +78,7 @@ class McpHandler:
 
             return {"content": result.content[0].text}
 
-    async def get_prompt(self, name: str, args: dict[str, Any] = None) -> str:
+    async def get_prompt(self, name: str, args: dict[str, Any] | None = None) -> str:
         server_name, prompt_name = name.split("__", 1)
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
