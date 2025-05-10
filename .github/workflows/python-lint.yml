@@ -7,16 +7,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.12'
     - name: Install uv
-      run: curl -LsSf https://astral.sh/uv/install.sh | sh
-    - name: Install dependencies
-      run: |
-        $HOME/.cargo/bin/uv sync
+      uses: astral-sh/setup-uv@v5
+    - name: Set up Python
+      run: uv python install
+    - name: Install the project
+      run: uv sync --locked --all-extras --dev
     - name: Lint with Ruff
-      run: $HOME/.cargo/bin/uv run ruff check .
+      run: uv run ruff check .
     - name: Type check with Mypy
-      run: $HOME/.cargo/bin/uv run mypy .
+      run: uv run mypy .
