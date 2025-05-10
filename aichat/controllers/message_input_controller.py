@@ -51,7 +51,11 @@ class FileLoaderController:
         self.update_view_callback = update_view_callback
 
     def append_files(self, e: ft.FilePickerResultEvent, chat_id: str):
-        for f in e.files:
+        if e.files is None:
+            logger.error("No files selected")
+            return
+
+        for f in e.files:  # type: ignore
             self.append_file_content_to_chatlist(chat_id, f)
 
     def append_file_content_to_chatlist(self, chat_id: str, file: FilePickerFile):
@@ -166,7 +170,7 @@ class FileLoaderController:
             messages = [
                 Message.construct_auto_file(
                     chat_id,
-                    display_content=f"File Uploaded: {file_path.name}",
+                    display_content=f"File Uploaded: {Path(file_path).name}",
                     system_content=text,
                     content_type=ContentType.TEXT,
                     role=Role("App", ft.Colors.GREY),
@@ -175,7 +179,7 @@ class FileLoaderController:
 
         return messages
 
-    def _upload_file_to_mistral_dataset(self, client: Mistral, file_path: Path) -> str:
+    def _upload_file_to_mistral_dataset(self, client: Mistral, file_path: str) -> str:
         logger.info("Using Mistral OCR to parse PDF")
 
         logger.info(f"Uploading File to Mistral...: {file_path}")
@@ -189,7 +193,7 @@ class FileLoaderController:
 
         return client.files.get_signed_url(file_id=uploaded_pdf.id)
 
-    def _get_ocr_response(self, client: Mistral, signed_url: str) -> models.OCRResponse:
+    def _get_ocr_response(self, client: Mistral, signed_url: str) -> models.OCRResponse:  # type: ignore
         logger.info("Getting OCR response from Mistral...")
         ocr_response = client.ocr.process(
             model="mistral-ocr-latest",

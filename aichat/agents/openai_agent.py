@@ -205,7 +205,7 @@ class OpenAIAgent:
             if finish_reason == "tool_calls":
                 is_final_response = False
 
-                tool_args_dict = json.loads(tool_args)
+                tool_args_dict = json.loads(str(tool_args))
                 logger.debug(f"Tool ID: {tool_id}")
                 logger.debug(f"Tool Name: {tool_name}")
                 logger.debug(f"Tool Args: {tool_args}")

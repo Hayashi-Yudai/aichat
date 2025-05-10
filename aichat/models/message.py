@@ -68,7 +68,7 @@ class Message:
         return cls(t[0], t[1], t[2], t[3], t[4], t[5], Role(t[6], color))
 
     @property
-    def schema(self) -> dict[str, str]:
+    def schema(self) -> list[Schema]:
         return [
             Schema("id", "text", is_primary_key=True, is_nullable=False),
             Schema("chat_id", "text", is_nullable=False),

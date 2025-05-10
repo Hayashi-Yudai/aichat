@@ -23,7 +23,7 @@ class Chat:
         return cls(*t)
 
     @property
-    def schema(self) -> dict[str, str]:
+    def schema(self) -> list[Schema]:
         return [
             Schema("id", "text", is_primary_key=True, is_nullable=False),
             Schema("created_at", "text", is_nullable=False),

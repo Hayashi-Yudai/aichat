@@ -64,7 +64,7 @@ class LocalAgent:
         content = output[0]["generated_text"][-1]["content"]
         if content is None:
             logger.error("Gemma returned None")
-            return ""
+            return [""]
 
         return [content]
 

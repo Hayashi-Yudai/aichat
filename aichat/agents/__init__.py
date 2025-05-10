@@ -41,20 +41,20 @@ def get_agent_by_model(model: StrEnum) -> Agent:
     """Gets an agent instance based on the model enum."""
     # Pass the shared McpHandler instance to agents that need it
     if model in OpenAIModel:
-        return OpenAIAgent(model, mcp_handler=_mcp_handler_instance)
+        return OpenAIAgent(OpenAIModel(model), mcp_handler=_mcp_handler_instance)
     elif model in GeminiModel:
-        return GeminiAgent(model, mcp_handler=_mcp_handler_instance)
+        return GeminiAgent(GeminiModel(model), mcp_handler=_mcp_handler_instance)
     elif model in ClaudeModel:
-        return ClaudeAgent(model, mcp_handler=_mcp_handler_instance)
+        return ClaudeAgent(ClaudeModel(model), mcp_handler=_mcp_handler_instance)
     elif model in DeepSeekModel:
         # Assuming DeepSeekAgent does not use McpHandler (adjust if it does)
-        return DeepSeekAgent(model)
+        return DeepSeekAgent(DeepSeekModel(model))
     elif model in LocalModel:
         # Assuming LocalAgent does not use McpHandler (adjust if it does)
-        return LocalAgent(model)
+        return LocalAgent(LocalModel(model))
     elif model in MLXModel:
-        return MLXAgent(model, mcp_handler=_mcp_handler_instance)
+        return MLXAgent(MLXModel(model), mcp_handler=_mcp_handler_instance)
     elif model in DummyModel:
-        return DummyAgent(model)
+        return DummyAgent(DummyModel(model))
     else:
         raise ValueError(f"Invalid model: {model}")

@@ -52,7 +52,7 @@ class GeminiAgent:
                 logger.error(f"Invalid content type: {message.content_type}")
                 raise ValueError(f"Invalid content type: {message.content_type}")
 
-        return request
+        return request  # type: ignore
 
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Google Gemini...")
@@ -68,7 +68,7 @@ class GeminiAgent:
             content = self.client.models.generate_content(
                 model=self.model,
                 contents=request_body,
-                config=types.GenerateContentConfig(tools=available_tools),
+                config=types.GenerateContentConfig(tools=available_tools),  # type: ignore
             )
 
             for candidate in content.candidates:
@@ -141,7 +141,7 @@ class GeminiAgent:
             content_stream = self.client.models.generate_content_stream(
                 model=self.model,
                 contents=request_body,
-                config=types.GenerateContentConfig(tools=available_tools),
+                config=types.GenerateContentConfig(tools=available_tools),  # type: ignore
             )
 
             for content in content_stream:

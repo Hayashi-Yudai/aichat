@@ -20,3 +20,14 @@ dependencies = [
     "mlx-lm>=0.22.3",
     "mcp[cli]>=1.6.0",
 ]
+
+[dependency-groups]
+dev = ["ruff>=0.11.9", "ty>=0.0.0a8"]
+
+[tool.ruff]
+exclude = [".venv", ".vscode", "__pypackages__", ".git"]
+line-length = 120
+target-version = "py312"
+
+[tool.ty.rules]
+unresolved-import = "ignore"
