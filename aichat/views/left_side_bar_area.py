@@ -1,7 +1,6 @@
 import uuid
 
 import flet as ft
-from flet.core import padding, border, dropdown
 from loguru import logger
 
 from agents import Agent, all_models, get_agent_by_model
@@ -32,7 +31,7 @@ class ModelSelector(ft.Dropdown):
     def __init__(self, page: ft.Page, default_agent: Agent):
         super().__init__()
 
-        self.options = [dropdown.Option(m) for m in all_models]
+        self.options = [ft.dropdown.Option(m) for m in all_models]
 
         self.value = default_agent.model
 
@@ -62,7 +61,7 @@ class PastChatItem(ft.ListTile):
 
         self.expand = True
         self.text = text
-        self.padding = padding.only(left=0, right=10, top=10, bottom=10)
+        self.padding = ft.padding.only(left=0, right=10, top=10, bottom=10)
         self.content_padding = 0
         self.spacing = 10
 
@@ -115,7 +114,7 @@ class PastChatListContainer(ft.Container):
         super().__init__()
 
         self.content = content
-        self.border = border.all(0, ft.Colors.TRANSPARENT)
+        self.border = ft.border.all(0, ft.Colors.TRANSPARENT)
         self.padding = 10
         self.expand = True
 

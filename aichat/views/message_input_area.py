@@ -1,5 +1,4 @@
 import flet as ft
-from flet.core import border, margin
 from loguru import logger
 
 from controllers.message_input_controller import (
@@ -92,11 +91,11 @@ class UserMessageArea(ft.Row):
                 border_radius=30,
                 padding=ft.Padding(top=10, left=15, right=15, bottom=10),
                 margin=ft.Margin(bottom=0, top=0, right=10, left=15),
-                border=border.all(2.0, ft.Colors.GREY_600),
+                border=ft.border.all(2.0, ft.Colors.GREY_600),
                 content=ft.Column(
                     [
                         ft.Container(
-                            self.message_input_area, margin=margin.only(left=8)
+                            self.message_input_area, margin=ft.margin.only(left=8)
                         ),
                         ft.Container(
                             ft.Row(
