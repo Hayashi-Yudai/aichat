@@ -26,10 +26,11 @@ class McpCache:
 class McpHandler:
     def __init__(self, config_path: str | Path):
         self._config = self._load_config(config_path)
+        self._tool_handler = _McpToolHandler()
         self._command_prompt_map = {}
 
         # TODO: serverごとに並列にやれば高速化できそう
-        self._cache_tools, self._cache_resources, self._ceche_prompts = asyncio.run(
+        self._cache_resources, self._cache_prompts = asyncio.run(
             self._create_cache(self._config)
         )
 
@@ -39,8 +40,7 @@ class McpHandler:
 
     async def _create_cache(
         self, config: dict[str, Any]
-    ) -> tuple[list[Tool], list[Resource], list[Prompt]]:
-        all_tools: list[Tool] = []
+    ) -> tuple[list[Resource], list[Prompt]]:
         all_resources: list[Resource] = []
         all_prompts: list[Prompt] = []
         async with AsyncExitStack() as exit_stack:
@@ -49,14 +49,7 @@ class McpHandler:
                     continue
 
                 session = await self.connect_with_server_name(server_name, exit_stack)
-                tool_response = await session.list_tools()
-                for tool in tool_response.tools:
-                    prefixed_tool = Tool(
-                        name=f"{server_name}__{tool.name}",
-                        description=tool.description,
-                        inputSchema=tool.inputSchema,
-                    )
-                    all_tools.append(prefixed_tool)
+                await self._tool_handler.cache_tools(session, server_name)
 
                 if config[server_name].get("prompt_call", False):
                     prompt_response = await session.list_prompts()
@@ -75,14 +68,14 @@ class McpHandler:
 
                 # TODO: Add resource handling if needed
 
-        return all_tools, all_resources, all_prompts
+        return all_resources, all_prompts
 
     @property
     def tools(self) -> list[Tool]:
         """
         Returns the cached list of tools from all connected MCP servers.
         """
-        return self._cache_tools
+        return self._tool_handler._tools
 
     @property
     def resources(self) -> list[Resource]:
@@ -125,9 +118,11 @@ class McpHandler:
 
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
-            result = await session.call_tool(tool_name, args)
+            result = await self._tool_handler.call_tool(
+                session, server_name, tool_name, args
+            )
 
-            return {"content": result.content[0].text}
+            return result
 
     async def get_prompt(
         self, name: str, args: dict[str, Any] | None = None
@@ -171,6 +166,30 @@ class McpHandler:
                 response += prompt
 
         return response
+
+
+class _McpToolHandler:
+    def __init__(self):
+        self._tools = []
+
+    async def cache_tools(self, session: ClientSession, server_name: str) -> list[Tool]:
+        tool_response = await session.list_tools()
+
+        for tool in tool_response.tools:
+            prefixed_tool = Tool(
+                name=f"{server_name}__{tool.name}",
+                description=tool.description,
+                inputSchema=tool.inputSchema,
+            )
+            self._tools.append(prefixed_tool)
+
+    async def call_tool(
+        self, session: ClientSession, server_name: str, name: str, args: dict[str, Any]
+    ) -> dict[str, Any]:
+        tool_name = name.split("__", 1)[1]
+        result = await session.call_tool(tool_name, args)
+
+        return {"content": result.content[0].text}
 
 
 class GeminiToolFormatter:
