@@ -59,7 +59,20 @@ class GeminiAgent:
 
         available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
 
-        request_body = [self._construct_request(m) for m in messages]
+        request_body = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                request_body.append(
+                    types.Content(
+                        role=p.role,
+                        parts=[
+                            types.Part(text=p.content.text),
+                        ],
+                    )
+                )
+            request_body.append(self._construct_request(m))
+            logger.debug(f"request_body: {request_body}")
 
         cnt = 0
         final_content = []
@@ -134,7 +147,19 @@ class GeminiAgent:
 
         available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
 
-        request_body = [self._construct_request(m) for m in messages]
+        request_body = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                request_body.append(
+                    types.Content(
+                        role=p.role,
+                        parts=[
+                            types.Part(text=p.content.text),
+                        ],
+                    )
+                )
+            request_body.append(self._construct_request(m))
 
         for _ in range(config.MAX_REQUEST_COUNT):
             is_final_response = True

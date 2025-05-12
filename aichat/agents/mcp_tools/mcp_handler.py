@@ -3,34 +3,54 @@ import json
 from pathlib import Path
 from typing import Any
 from contextlib import AsyncExitStack
+import re
 
 from loguru import logger
+from pydantic.dataclasses import dataclass
 
-from mcp import ClientSession, StdioServerParameters, Tool
+from mcp import ClientSession, StdioServerParameters, Tool, Resource
+from mcp.server.fastmcp.prompts import base
+from mcp.types import Prompt
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from google.genai import types
 
 
+@dataclass
+class McpCache:
+    tools: list[Tool]
+    resources: list[Resource]
+    prompts: list[Prompt]
+
+
 class McpHandler:
     def __init__(self, config_path: str | Path):
         self._config = self._load_config(config_path)
-        self._cache_tools = asyncio.run(self._cache_tool_list(self._config))
+        self._command_prompt_map = {}
+
+        # TODO: serverごとに並列にやれば高速化できそう
+        self._cache_tools, self._cache_resources, self._ceche_prompts = asyncio.run(
+            self._create_cache(self._config)
+        )
 
     def _load_config(self, config_path: str | Path) -> dict[str, Any]:
         with open(config_path) as f:
             return json.load(f)
 
-    async def _cache_tool_list(self, config: dict[str, Any]) -> list[Tool]:
+    async def _create_cache(
+        self, config: dict[str, Any]
+    ) -> tuple[list[Tool], list[Resource], list[Prompt]]:
         all_tools: list[Tool] = []
+        all_resources: list[Resource] = []
+        all_prompts: list[Prompt] = []
         async with AsyncExitStack() as exit_stack:
             for server_name in config.keys():
                 if config[server_name].get("disabled", False):
                     continue
 
                 session = await self.connect_with_server_name(server_name, exit_stack)
-                res = await session.list_tools()
-                for tool in res.tools:
+                tool_response = await session.list_tools()
+                for tool in tool_response.tools:
                     prefixed_tool = Tool(
                         name=f"{server_name}__{tool.name}",
                         description=tool.description,
@@ -38,7 +58,24 @@ class McpHandler:
                     )
                     all_tools.append(prefixed_tool)
 
-        return all_tools
+                if config[server_name].get("prompt_call", False):
+                    prompt_response = await session.list_prompts()
+                    for prompt in prompt_response.prompts:
+                        prefixed_prompt = Prompt(
+                            name=f"{server_name}__{prompt.name}",
+                            description=prompt.description,
+                            arguments=prompt.arguments,
+                        )
+                        all_prompts.append(prefixed_prompt)
+
+                        self._command_prompt_map[
+                            config[server_name]["prompt_call"][prompt.name]
+                        ] = prefixed_prompt.name
+                        logger.debug(f"map: {self._command_prompt_map}")
+
+                # TODO: Add resource handling if needed
+
+        return all_tools, all_resources, all_prompts
 
     @property
     def tools(self) -> list[Tool]:
@@ -46,6 +83,20 @@ class McpHandler:
         Returns the cached list of tools from all connected MCP servers.
         """
         return self._cache_tools
+
+    @property
+    def resources(self) -> list[Resource]:
+        """
+        Returns the cached list of resources from all connected MCP servers.
+        """
+        return self._cache_resources
+
+    @property
+    def prompts(self) -> list[Prompt]:
+        """
+        Returns the cached list of prompts from all connected MCP servers.
+        """
+        return self._cache_prompts
 
     async def connect_with_server_name(
         self, server_name: str, exit_stack: AsyncExitStack
@@ -78,14 +129,16 @@ class McpHandler:
 
             return {"content": result.content[0].text}
 
-    async def get_prompt(self, name: str, args: dict[str, Any] | None = None) -> str:
+    async def get_prompt(
+        self, name: str, args: dict[str, Any] | None = None
+    ) -> list[base.Message]:
         server_name, prompt_name = name.split("__", 1)
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
             prompt = await session.get_prompt(prompt_name, args)
             logger.debug(f"Prompt: {prompt.messages[0].content}")
 
-            return prompt.messages[0].content.text
+            return prompt.messages
 
     async def read_resource(self, name: str) -> str:
         server_name, resource_name = name.split("__", 1)
@@ -95,6 +148,29 @@ class McpHandler:
             logger.debug(f"Resource: {resources.contents[0].text}")
 
             return resources.contents[0].text
+
+    async def watch_prompt_call(self, text: str) -> list[base.Message]:
+        """
+        Extracts patterns following a slash (e.g., "/pattern") from the text and expand proper prompt.
+
+        Args:
+            text: The input string to search within.
+
+        Returns:
+            A list of prompts
+        """
+        # Pattern to find "/" followed by non-whitespace characters
+        prompt_pattern = r"(?:^| )/(\S+)"
+        matches = re.findall(prompt_pattern, text)
+
+        response = []
+        for match in matches:
+            logger.debug(f"Match: {match}")
+            if match in self._command_prompt_map:
+                prompt = await self.get_prompt(self._command_prompt_map[match])
+                response += prompt
+
+        return response
 
 
 class GeminiToolFormatter:
