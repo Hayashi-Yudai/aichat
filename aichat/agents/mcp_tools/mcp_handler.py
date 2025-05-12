@@ -8,7 +8,7 @@ import re
 from loguru import logger
 from pydantic.dataclasses import dataclass
 
-from mcp import ClientSession, StdioServerParameters, Tool, Resource
+from mcp import ClientSession, StdioServerParameters, Tool, Resource, ReadResourceResult
 from mcp.server.fastmcp.prompts import base
 from mcp.types import Prompt
 from mcp.client.stdio import stdio_client
@@ -205,7 +205,9 @@ class _McpResourceHandler:
             self._resources.append(prefixed_resource)
             logger.debug(f"Resource: {prefixed_resource.name}")
 
-    async def read_resource(self, session: ClientSession, name: str) -> Resource:
+    async def read_resource(
+        self, session: ClientSession, name: str
+    ) -> ReadResourceResult:
         resource = await session.read_resource(name)
         return resource
 
