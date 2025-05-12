@@ -27,12 +27,11 @@ class McpHandler:
     def __init__(self, config_path: str | Path):
         self._config = self._load_config(config_path)
         self._tool_handler = _McpToolHandler()
+        self._prompt_handler = _McpPromptHandler(self._config)
         self._command_prompt_map = {}
 
         # TODO: serverごとに並列にやれば高速化できそう
-        self._cache_resources, self._cache_prompts = asyncio.run(
-            self._create_cache(self._config)
-        )
+        self._cache_resources = asyncio.run(self._create_cache(self._config))
 
     def _load_config(self, config_path: str | Path) -> dict[str, Any]:
         with open(config_path) as f:
@@ -42,7 +41,6 @@ class McpHandler:
         self, config: dict[str, Any]
     ) -> tuple[list[Resource], list[Prompt]]:
         all_resources: list[Resource] = []
-        all_prompts: list[Prompt] = []
         async with AsyncExitStack() as exit_stack:
             for server_name in config.keys():
                 if config[server_name].get("disabled", False):
@@ -50,25 +48,11 @@ class McpHandler:
 
                 session = await self.connect_with_server_name(server_name, exit_stack)
                 await self._tool_handler.cache_tools(session, server_name)
-
-                if config[server_name].get("prompt_call", False):
-                    prompt_response = await session.list_prompts()
-                    for prompt in prompt_response.prompts:
-                        prefixed_prompt = Prompt(
-                            name=f"{server_name}__{prompt.name}",
-                            description=prompt.description,
-                            arguments=prompt.arguments,
-                        )
-                        all_prompts.append(prefixed_prompt)
-
-                        self._command_prompt_map[
-                            config[server_name]["prompt_call"][prompt.name]
-                        ] = prefixed_prompt.name
-                        logger.debug(f"map: {self._command_prompt_map}")
+                await self._prompt_handler.cache_prompts(session, server_name)
 
                 # TODO: Add resource handling if needed
 
-        return all_resources, all_prompts
+        return all_resources
 
     @property
     def tools(self) -> list[Tool]:
@@ -89,7 +73,7 @@ class McpHandler:
         """
         Returns the cached list of prompts from all connected MCP servers.
         """
-        return self._cache_prompts
+        return self._prompt_handler._prompts
 
     async def connect_with_server_name(
         self, server_name: str, exit_stack: AsyncExitStack
@@ -118,9 +102,7 @@ class McpHandler:
 
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
-            result = await self._tool_handler.call_tool(
-                session, server_name, tool_name, args
-            )
+            result = await self._tool_handler.call_tool(session, tool_name, args)
 
             return result
 
@@ -130,10 +112,9 @@ class McpHandler:
         server_name, prompt_name = name.split("__", 1)
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
-            prompt = await session.get_prompt(prompt_name, args)
-            logger.debug(f"Prompt: {prompt.messages[0].content}")
+            prompt = await self._prompt_handler.get_prompt(session, prompt_name, args)
 
-            return prompt.messages
+            return prompt
 
     async def read_resource(self, name: str) -> str:
         server_name, resource_name = name.split("__", 1)
@@ -145,15 +126,6 @@ class McpHandler:
             return resources.contents[0].text
 
     async def watch_prompt_call(self, text: str) -> list[base.Message]:
-        """
-        Extracts patterns following a slash (e.g., "/pattern") from the text and expand proper prompt.
-
-        Args:
-            text: The input string to search within.
-
-        Returns:
-            A list of prompts
-        """
         # Pattern to find "/" followed by non-whitespace characters
         prompt_pattern = r"(?:^| )/(\S+)"
         matches = re.findall(prompt_pattern, text)
@@ -161,8 +133,8 @@ class McpHandler:
         response = []
         for match in matches:
             logger.debug(f"Match: {match}")
-            if match in self._command_prompt_map:
-                prompt = await self.get_prompt(self._command_prompt_map[match])
+            if prompt_name := self._prompt_handler.get_prompt_from_command(match):
+                prompt = await self.get_prompt(prompt_name)
                 response += prompt
 
         return response
@@ -172,7 +144,7 @@ class _McpToolHandler:
     def __init__(self):
         self._tools = []
 
-    async def cache_tools(self, session: ClientSession, server_name: str) -> list[Tool]:
+    async def cache_tools(self, session: ClientSession, server_name: str):
         tool_response = await session.list_tools()
 
         for tool in tool_response.tools:
@@ -184,12 +156,46 @@ class _McpToolHandler:
             self._tools.append(prefixed_tool)
 
     async def call_tool(
-        self, session: ClientSession, server_name: str, name: str, args: dict[str, Any]
+        self, session: ClientSession, name: str, args: dict[str, Any]
     ) -> dict[str, Any]:
-        tool_name = name.split("__", 1)[1]
-        result = await session.call_tool(tool_name, args)
+        result = await session.call_tool(name, args)
 
         return {"content": result.content[0].text}
+
+
+class _McpPromptHandler:
+    def __init__(self, config: dict[str, Any]):
+        self._prompts = []
+        self._command_prompt_map = {}
+
+        self.config = config
+
+    async def cache_prompts(self, session: ClientSession, server_name: str):
+        if not self.config[server_name].get("prompt_call", False):
+            return
+
+        prompt_response = await session.list_prompts()
+        for prompt in prompt_response.prompts:
+            prefixed_prompt = Prompt(
+                name=f"{server_name}__{prompt.name}",
+                description=prompt.description,
+                arguments=prompt.arguments,
+            )
+            self._prompts.append(prefixed_prompt)
+            self._command_prompt_map[
+                self.config[server_name]["prompt_call"][prompt.name]
+            ] = prefixed_prompt.name
+            logger.debug(f"map: {self._command_prompt_map}")
+
+    async def get_prompt(
+        self, session: ClientSession, name: str, args: dict[str, Any] | None = None
+    ) -> list[base.Message]:
+        prompt = await session.get_prompt(name, args)
+
+        return prompt.messages
+
+    def get_prompt_from_command(self, command: str) -> str | None:
+        return self._command_prompt_map.get(command, None)
 
 
 class GeminiToolFormatter:
