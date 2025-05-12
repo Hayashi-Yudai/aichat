@@ -66,7 +66,12 @@ class OpenAIAgent:
     async def request(self, messages: list[Message]) -> str:
         """Handles non-streaming requests with potential tool calls."""
         logger.info("Sending non-streaming message to OpenAI with MCP support...")
-        openai_messages = [self._construct_request(m) for m in messages]
+        openai_messages = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                openai_messages.append({"role": p.role, "content": p.content.text})
+            openai_messages.append(self._construct_request(m))
         final_text_parts = []
         call_count = 0
 
@@ -161,7 +166,12 @@ class OpenAIAgent:
     ) -> AsyncGenerator[str, None]:
         """Initiates the streaming request with MCP support."""
         logger.info("Starting streaming request with OpenAI and MCP support...")
-        prompt = [self._construct_request(m) for m in messages]
+        prompt = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                prompt.append({"role": p.role, "content": p.content.text})
+            prompt.append(self._construct_request(m))
 
         available_tools = OpenAIToolFormatter.format(self.mcp_handler.tools)
 

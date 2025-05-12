@@ -14,8 +14,8 @@ from .mcp_tools.mcp_handler import McpHandler
 
 
 class MLXModel(StrEnum):
-    GEMMA3_27B_4BIT = "mlx-community/gemma-3-27b-it-4bit"
-    DEEPSEEK_R1_32B_4BIT = "mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit"
+    # GEMMA3_27B_4BIT = "mlx-community/gemma-3-27b-it-4bit"
+    # DEEPSEEK_R1_32B_4BIT = "mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit"
     QWEN3_30B_4BIT = "mlx-community/Qwen3-30B-A3B-4bit"
 
 
