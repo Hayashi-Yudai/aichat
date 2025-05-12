@@ -26,53 +26,40 @@ class McpCache:
 class McpHandler:
     def __init__(self, config_path: str | Path):
         self._config = self._load_config(config_path)
+
         self._tool_handler = _McpToolHandler()
         self._prompt_handler = _McpPromptHandler(self._config)
-        self._command_prompt_map = {}
+        self._resource_handler = _McpResourceHandler(self._config)
 
         # TODO: serverごとに並列にやれば高速化できそう
-        self._cache_resources = asyncio.run(self._create_cache(self._config))
+        asyncio.run(self._create_cache(self._config))
 
     def _load_config(self, config_path: str | Path) -> dict[str, Any]:
         with open(config_path) as f:
             return json.load(f)
 
-    async def _create_cache(
-        self, config: dict[str, Any]
-    ) -> tuple[list[Resource], list[Prompt]]:
-        all_resources: list[Resource] = []
+    async def _create_cache(self, config: dict[str, Any]):
         async with AsyncExitStack() as exit_stack:
             for server_name in config.keys():
                 if config[server_name].get("disabled", False):
                     continue
 
                 session = await self.connect_with_server_name(server_name, exit_stack)
+
                 await self._tool_handler.cache_tools(session, server_name)
                 await self._prompt_handler.cache_prompts(session, server_name)
-
-                # TODO: Add resource handling if needed
-
-        return all_resources
+                await self._resource_handler.cache_resources(session, server_name)
 
     @property
     def tools(self) -> list[Tool]:
-        """
-        Returns the cached list of tools from all connected MCP servers.
-        """
         return self._tool_handler._tools
 
     @property
     def resources(self) -> list[Resource]:
-        """
-        Returns the cached list of resources from all connected MCP servers.
-        """
-        return self._cache_resources
+        return self._resource_handler._resources
 
     @property
     def prompts(self) -> list[Prompt]:
-        """
-        Returns the cached list of prompts from all connected MCP servers.
-        """
         return self._prompt_handler._prompts
 
     async def connect_with_server_name(
@@ -120,8 +107,9 @@ class McpHandler:
         server_name, resource_name = name.split("__", 1)
         async with AsyncExitStack() as exit_stack:
             session = await self.connect_with_server_name(server_name, exit_stack)
-            resources = await session.read_resource(resource_name)
-            logger.debug(f"Resource: {resources.contents[0].text}")
+            resources = await self._resource_handler.read_resource(
+                session, resource_name
+            )
 
             return resources.contents[0].text
 
@@ -133,7 +121,7 @@ class McpHandler:
         response = []
         for match in matches:
             logger.debug(f"Match: {match}")
-            if prompt_name := self._prompt_handler.get_prompt_from_command(match):
+            if prompt_name := self._prompt_handler.get_prompt_name_from_command(match):
                 prompt = await self.get_prompt(prompt_name)
                 response += prompt
 
@@ -194,8 +182,32 @@ class _McpPromptHandler:
 
         return prompt.messages
 
-    def get_prompt_from_command(self, command: str) -> str | None:
+    def get_prompt_name_from_command(self, command: str) -> str | None:
         return self._command_prompt_map.get(command, None)
+
+
+class _McpResourceHandler:
+    def __init__(self, config: dict[str, Any]):
+        self._resources = []
+        self.config = config
+
+    async def cache_resources(self, session: ClientSession, server_name: str):
+        if not self.config[server_name].get("resource_call", False):
+            return
+
+        resource_response = await session.list_resources()
+        for resource in resource_response.resources:
+            prefixed_resource = Resource(
+                name=f"{server_name}__{resource.name}",
+                description=resource.description,
+                mimeType=resource.mimeType,
+            )
+            self._resources.append(prefixed_resource)
+            logger.debug(f"Resource: {prefixed_resource.name}")
+
+    async def read_resource(self, session: ClientSession, name: str) -> Resource:
+        resource = await session.read_resource(name)
+        return resource
 
 
 class GeminiToolFormatter:
