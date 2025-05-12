@@ -66,9 +66,12 @@ class MLXAgent:
     async def request(self, messages: list[Message]) -> list[str]:
         logger.info("Generating message with Gemma...")
 
-        request_body = self.tokenizer.apply_chat_template(
-            [self._construct_request(m) for m in messages], add_generation_prompt=True
-        )
+        request_body = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                request_body.append({"role": p.role, "content": p.content.text})
+            request_body.append(self._construct_request(m))
         output = generate(
             self.client, self.tokenizer, prompt=request_body, max_tokens=self.max_tokens
         )
@@ -79,7 +82,12 @@ class MLXAgent:
         self, messages: list[Message]
     ) -> AsyncGenerator[str, None]:
         logger.info("Generate message with mlx-model in streaming.")
-        request_messages = [self._construct_request(m) for m in messages]
+        request_messages = []
+        for m in messages:
+            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
+            for p in prompts:
+                request_messages.append({"role": p.role, "content": p.content.text})
+            request_messages.append(self._construct_request(m))
 
         available_tools = [
             {
