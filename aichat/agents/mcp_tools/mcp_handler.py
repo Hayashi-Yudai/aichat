@@ -6,7 +6,6 @@ from contextlib import AsyncExitStack
 import re
 
 from loguru import logger
-from pydantic.dataclasses import dataclass
 
 from mcp import ClientSession, StdioServerParameters, Tool, Resource, ReadResourceResult
 from mcp.server.fastmcp.prompts import base
@@ -14,13 +13,6 @@ from mcp.types import Prompt
 from mcp.client.stdio import stdio_client
 from mcp.client.sse import sse_client
 from google.genai import types
-
-
-@dataclass
-class McpCache:
-    tools: list[Tool]
-    resources: list[Resource]
-    prompts: list[Prompt]
 
 
 class McpHandler:
@@ -31,7 +23,6 @@ class McpHandler:
         self._prompt_handler = _McpPromptHandler(self._config)
         self._resource_handler = _McpResourceHandler(self._config)
 
-        # TODO: serverごとに並列にやれば高速化できそう
         asyncio.run(self._create_cache(self._config))
 
     def _load_config(self, config_path: str | Path) -> dict[str, Any]:
@@ -39,16 +30,23 @@ class McpHandler:
             return json.load(f)
 
     async def _create_cache(self, config: dict[str, Any]):
+        tasks = []
+        for server_name in config.keys():
+            if config[server_name].get("disabled", False):
+                continue
+
+            tasks.append(self.__create_cache_for_one_server(server_name))
+
+        await asyncio.gather(*tasks)
+
+    async def __create_cache_for_one_server(self, server_name: str):
+        tasks = []
         async with AsyncExitStack() as exit_stack:
-            for server_name in config.keys():
-                if config[server_name].get("disabled", False):
-                    continue
-
-                session = await self.connect_with_server_name(server_name, exit_stack)
-
-                await self._tool_handler.cache_tools(session, server_name)
-                await self._prompt_handler.cache_prompts(session, server_name)
-                await self._resource_handler.cache_resources(session, server_name)
+            session = await self.connect_with_server_name(server_name, exit_stack)
+            tasks.append(self._tool_handler.cache_tools(session, server_name))
+            tasks.append(self._prompt_handler.cache_prompts(session, server_name))
+            tasks.append(self._resource_handler.cache_resources(session, server_name))
+            await asyncio.gather(*tasks)
 
     @property
     def tools(self) -> list[Tool]:
