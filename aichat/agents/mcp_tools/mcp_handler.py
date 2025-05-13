@@ -196,6 +196,7 @@ class _McpResourceHandler:
         for resource in resource_response.resources:
             prefixed_resource = Resource(
                 name=f"{server_name}__{resource.name}",
+                uri=resource.uri,
                 description=resource.description,
                 mimeType=resource.mimeType,
             )
@@ -205,5 +206,5 @@ class _McpResourceHandler:
     async def read_resource(
         self, session: ClientSession, name: str
     ) -> ReadResourceResult:
-        resource = await session.read_resource(name)
+        resource = await session.read_resource(name)  # type: ignore
         return resource
