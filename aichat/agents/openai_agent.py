@@ -10,7 +10,7 @@ from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
 from mcp.shared.exceptions import McpError
 
-from .mcp_tools.mcp_handler import McpHandler, OpenAIToolFormatter
+from agents.mcp_tools import McpHandler, OpenAIToolFormatter
 import config
 from models.role import Role
 from models.message import Message, ContentType

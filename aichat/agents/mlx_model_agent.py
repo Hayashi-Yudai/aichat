@@ -10,7 +10,7 @@ from mlx_lm import load, generate, stream_generate
 import config
 from models.role import Role
 from models.message import Message, ContentType
-from .mcp_tools.mcp_handler import McpHandler
+from agents.mcp_tools import McpHandler
 
 
 class MLXModel(StrEnum):

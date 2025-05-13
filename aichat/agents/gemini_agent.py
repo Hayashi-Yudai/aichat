@@ -10,7 +10,7 @@ from mcp.shared.exceptions import McpError
 import config
 from models.role import Role
 from models.message import Message, ContentType
-from .mcp_tools.mcp_handler import McpHandler, GeminiToolFormatter
+from agents.mcp_tools import McpHandler, GeminiToolFormatter
 
 
 class GeminiModel(StrEnum):

@@ -8,7 +8,7 @@ from loguru import logger
 import anthropic
 from mcp.shared.exceptions import McpError
 
-from .mcp_tools.mcp_handler import McpHandler, ClaudeToolFormatter
+from agents.mcp_tools import McpHandler, ClaudeToolFormatter
 from anthropic.types import (
     Message as AnthropicMessage,
     ToolUseBlock,
