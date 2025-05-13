@@ -82,6 +82,7 @@ The following models are supported by default (Model names are the Enum names de
 *   **Local (MLX)** (Apple Silicon Mac):
     *   `GEMMA3_27B_4BIT` (`mlx-community/gemma-3-27b-it-4bit`)
     *   `DEEPSEEK_R1_32B_4BIT` (`mlx-community/DeepSeek-R1-Distill-Qwen-32B-4bit`)
+    *   `QWEN3_30B_4BIT` (`mlx-community/Qwen3-30B-A3B-4bit`)
 *   **Dummy**: A dummy model for testing purposes.
 
 ## How to Add New Models
@@ -174,7 +175,7 @@ To add a new model, you primarily need to modify two files:
 Utilize MCP servers to integrate with external functionalities like file operations or web browsing.
 
 *   **Configuration**: Create `aichat/agents/servers.json` based on `aichat/agents/servers.json.sample` and describe the MCP servers you want to use.
-*   **Usage**: Call `self.mcp_handler.use_tool(...)` or `self.mcp_handler.access_resource(...)` within an Agent to use MCP server functionalities. Refer to `aichat/agents/mcp_handler.py` for details.
+*   **Usage**: Call `self.mcp_handler.use_tool(...)` within an Agent to use MCP server functionalities. Refer to `aichat/agents/mcp_handler.py` for details.
 
 ## Contributing
 
