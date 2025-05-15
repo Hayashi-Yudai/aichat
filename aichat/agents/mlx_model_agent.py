@@ -6,6 +6,7 @@ from typing import Any, AsyncGenerator
 from loguru import logger
 from transformers import TextIteratorStreamer
 from mlx_lm import load, generate, stream_generate
+from mlx_lm.sample_utils import make_sampler
 
 import config
 from models.role import Role
@@ -100,6 +101,7 @@ class MLXAgent:
             }
             for tool in self.mcp_handler.tools
         ]
+        sampler = make_sampler(temp=0.6, top_p=0.95, top_k=20, min_p=0.0)
         for _ in range(5):
             request_body = self.tokenizer.apply_chat_template(
                 request_messages,
@@ -109,7 +111,11 @@ class MLXAgent:
 
             all_text = ""
             for response in stream_generate(
-                self.client, self.tokenizer, request_body, max_tokens=self.max_tokens
+                self.client,
+                self.tokenizer,
+                request_body,
+                max_tokens=self.max_tokens,
+                sampler=sampler,
             ):
                 all_text += response.text
                 yield response.text
