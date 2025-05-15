@@ -124,7 +124,13 @@ class MLXAgent:
             match_tool = re.search(r"<tool_call>(.*?)</tool_call>", all_text, re.DOTALL)
             if match_tool:
                 json_str = match_tool.group(1)
-                data = json.loads(json_str)
+                try:
+                    data = self._parse_tool_call_json(json_str)
+                except Exception as e:
+                    logger.error(
+                        f"Failed to parse tool_call JSON: {e}\njson_str: {json_str}"
+                    )
+                    break
                 result = await self.mcp_handler.call_tool(
                     data["name"],
                     data["arguments"],
@@ -139,3 +145,15 @@ class MLXAgent:
                 )
             else:
                 break
+
+    def _parse_tool_call_json(self, json_str: str) -> dict:
+        """
+        与えられたjson_strを整形し、JSONとしてパースする。
+        余計な改行や空白、シングルクォート、末尾カンマ、バックスラッシュの修正も行う。
+        """
+        json_str = json_str.strip()
+        json_str = re.sub(r"\s+", " ", json_str)  # 改行・タブをスペースに
+        json_str = json_str.replace("'", '"')  # シングルクォート→ダブルクォート
+        json_str = re.sub(r",\s*([}\]])", r"\1", json_str)  # 末尾カンマ除去
+        json_str = json_str.replace("\\", "\\\\")  # バックスラッシュのエスケープ
+        return json.loads(json_str)
