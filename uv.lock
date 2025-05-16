@@ -4,7 +4,7 @@ requires-python = ">=3.12"
 
 [[package]]
 name = "aichat"
-version = "0.7.0"
+version = "0.8.2"
 source = { virtual = "." }
 dependencies = [
     { name = "anthropic" },
@@ -816,9 +816,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ba/c3/c0a439e3b8d340edf48ee38653ad15812afd4b9bac6444672990e08fc4d7/mlx-0.25.2-cp312-cp312-macosx_13_0_arm64.whl", hash = "sha256:c9d35eac8d3224c9e005e7d469dd927dbdecd3d01b2e23390fd0d496e0010b7f", size = 30935677, upload-time = "2025-05-09T21:40:49.182Z" },
     { url = "https://files.pythonhosted.org/packages/a9/ab/cb2749c8cc5044501d0ef467bf787505652abbe2d54897915cc207c2425b/mlx-0.25.2-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:c965289d64814005f85c4b121d5df00889a0ea5160883a62edb396b360bf5736", size = 30395510, upload-time = "2025-05-09T21:40:06.616Z" },
     { url = "https://files.pythonhosted.org/packages/71/d9/4dce04ba004973879110ba6d62d4fdbc19d01d2b4ad40584d36c1b743586/mlx-0.25.2-cp312-cp312-macosx_15_0_arm64.whl", hash = "sha256:24055a8fba9a6261d94dbfd31c37ede75106c7a832cb0609cb5b65e7e903e1fb", size = 30396327, upload-time = "2025-05-09T21:40:12.51Z" },
+    { url = "https://files.pythonhosted.org/packages/e5/6c/5804da36d1db2df78b8e0298d6ea1d1aa543c0f943450f56ab6a08adfa47/mlx-0.25.2-cp312-cp312-manylinux_2_31_x86_64.whl", hash = "sha256:d7cc749e66e759ccad70d736896e0bc71d15f99fdbccfaa292da65fd6988bab8", size = 14608584, upload-time = "2025-05-14T19:13:50.629Z" },
     { url = "https://files.pythonhosted.org/packages/d5/3f/5a3d036be09c32e76178eef7e51f4a9d1aef212f967927b62a9e49e2e4b0/mlx-0.25.2-cp313-cp313-macosx_13_0_arm64.whl", hash = "sha256:836e224efabbcdd55340c59148a6f36c69bd80e08b2e73fe6f6a6b02a00888b1", size = 30935605, upload-time = "2025-05-09T21:40:52.858Z" },
     { url = "https://files.pythonhosted.org/packages/8d/f9/afbe659c623ae07755f1c0e63172eed60ed0b749745c428a6e035336c196/mlx-0.25.2-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:a39fef63444a7642f090ee09aaed8c59592962104d91bc655f330169dfacb8c0", size = 30395624, upload-time = "2025-05-09T21:40:09.459Z" },
     { url = "https://files.pythonhosted.org/packages/56/0c/b673061779e332e84f6bc864c66fa7c940bcc3977f9dffc23942124d5b1c/mlx-0.25.2-cp313-cp313-macosx_15_0_arm64.whl", hash = "sha256:20f36ebf454b12a77d8b82a7a510dd235ab2cb24ef83011e9dd1daef1933617d", size = 30396305, upload-time = "2025-05-09T21:41:40.73Z" },
+    { url = "https://files.pythonhosted.org/packages/cd/a0/296b3588cff579bebda296ee6bf3c617a595f60263786e6eb0bb361f8b31/mlx-0.25.2-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:7af0708c8b80f71d5a6f583d788e2d6086b7dc37019ed5419e0143cc7c7e7002", size = 14608529, upload-time = "2025-05-14T19:13:13.491Z" },
 ]
 
 [[package]]
