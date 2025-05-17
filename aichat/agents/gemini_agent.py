@@ -144,7 +144,9 @@ class GeminiAgent:
             if is_final_response:
                 break
 
-    async def _process_function_call(self, function_call: types.FunctionCall) -> Any:
+    async def _process_function_call(
+        self, function_call: types.FunctionCall
+    ) -> list[Any]:
         name = function_call.name
         args = function_call.args
 
