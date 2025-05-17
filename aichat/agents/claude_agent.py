@@ -194,38 +194,6 @@ class ClaudeAgent:
                 elif event.type == "message_stop":
                     logger.info("Continued stream processing finished.")
 
-    async def _handle_tool_use(
-        self,
-        mcp_handler: McpHandler | None,
-        tool_use: ToolUseBlock,
-        claude_messages: list[dict[str, Any]],
-        available_tools: list[dict[str, Any]],
-    ) -> AnthropicMessage:
-        """Handles a tool use request from Claude (non-streaming)."""
-        tool_name = tool_use.name
-        tool_args = tool_use.input
-        tool_use_id = tool_use.id
-        logger.info(f"Calling tool {tool_name} with args {tool_args}")
-
-        result_data = await self._process_function_call(
-            {
-                "name": tool_name,
-                "args": tool_args,
-                "id": tool_use_id,
-            }
-        )
-        claude_messages.extend(result_data)
-
-        logger.info("Calling Claude API again with tool result...")
-        response = await self.client.messages.create(
-            model=self.model,
-            max_tokens=self.MAX_TOKENS,
-            messages=claude_messages,
-            tools=available_tools,
-        )
-        logger.info("Received response after tool call.")
-        return response
-
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Claude...")
         claude_messages = [self._construct_request(m) for m in messages]
@@ -233,16 +201,15 @@ class ClaudeAgent:
         call_count = 0
 
         available_tools = ClaudeToolFormatter.format(self.mcp_handler.tools)
-        logger.info("Sending initial message to Claude with tools...")
-        response = await self.client.messages.create(
-            messages=claude_messages,
-            model=self.model,
-            max_tokens=self.MAX_TOKENS,
-            tools=available_tools,
-        )
-        logger.info("Initial response received.")
 
         while call_count < config.MAX_REQUEST_COUNT:
+            response = await self.client.messages.create(
+                messages=claude_messages,
+                model=self.model,
+                max_tokens=self.MAX_TOKENS,
+                tools=available_tools,
+            )
+
             stop_reason = response.stop_reason
             assistant_responses_content = []
             tool_use_occurred = False
@@ -268,13 +235,11 @@ class ClaudeAgent:
                             "content": assistant_responses_content,
                         }
                     )
-
-                    response = await self._handle_tool_use(
-                        self.mcp_handler,
-                        tool_use_block,
-                        claude_messages,
-                        available_tools,
+                    tool_result = await self._process_function_call(
+                        tool_use_block.name, tool_use_block.input, tool_use_block.id
                     )
+                    claude_messages.extend(tool_result)
+
                     tool_use_occurred = True
                     break  # Break inner loop to process new response
             else:
