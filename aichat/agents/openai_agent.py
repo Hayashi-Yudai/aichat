@@ -8,7 +8,6 @@ from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
 from openai.types.chat.chat_completion import ChatCompletion
-from mcp.shared.exceptions import McpError
 
 from agents.mcp_tools import McpHandler, OpenAIToolFormatter
 import config
@@ -111,18 +110,15 @@ class OpenAIAgent:
                     logger.info(
                         f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
                     )
-                    tool_result = await self.mcp_handler.call_tool(
-                        mcp_tool_name,
-                        tool_args_str,
-                        tool_call_id,
+                    tool_results.extend(
+                        await self._process_function_call(
+                            {
+                                "id": tool_call_id,
+                                "name": mcp_tool_name,
+                                "args": tool_args_str,
+                            }
+                        )
                     )
-
-                    tool_result_formatted = {
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": tool_result.get("content", ""),
-                    }
-                    tool_results.append(tool_result_formatted)
 
                 openai_messages.extend(tool_results)
                 call_count += 1
@@ -220,42 +216,11 @@ class OpenAIAgent:
                 logger.debug(f"Tool Name: {tool_name}")
                 logger.debug(f"Tool Args: {tool_args}")
 
-                prompt.append(
-                    {
-                        "role": "assistant",
-                        "tool_calls": [
-                            {
-                                "id": tool_id,
-                                "type": "function",
-                                "function": {
-                                    "name": tool_name,
-                                    "arguments": tool_args,
-                                },
-                            }
-                        ],
-                    }
+                prompt.extend(
+                    await self._process_function_call(
+                        {"id": tool_id, "name": tool_name, "args": tool_args_dict}
+                    )
                 )
-
-                try:
-                    result = await self.mcp_handler.call_tool(
-                        tool_name, args=tool_args_dict
-                    )
-                    prompt.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_id,
-                            "content": result.get("content", ""),
-                        }
-                    )
-                except McpError as e:
-                    logger.error(f"Error calling tool: {e}")
-                    prompt.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_id,
-                            "content": e,
-                        }
-                    )
 
             elif finish_reason == "stop":
                 logger.debug("Finished streaming.")
@@ -263,3 +228,47 @@ class OpenAIAgent:
 
             if is_final_response:
                 break
+
+    async def _process_function_call(self, function_call: dict[str, Any]) -> list[Any]:
+        function_call_id = function_call["id"]
+        name = function_call["name"]
+        args = function_call["args"]
+
+        new_request_body = []
+        new_request_body.append(
+            {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "id": function_call_id,
+                        "type": "function",
+                        "function": {
+                            "name": name,
+                            "arguments": json.dumps(args),
+                        },
+                    }
+                ],
+            }
+        )
+        logger.debug(f"function_call: {name}({args})")
+        try:
+            function_result = await self.mcp_handler.call_tool(name, args=args)
+            logger.debug(f"Tool result: {function_result['content']}")
+            new_request_body.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": function_call_id,
+                    "content": function_result.get("content", ""),
+                }
+            )
+        except Exception as e:
+            logger.error(f"Error calling tool: {e}")
+            new_request_body.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": function_call_id,
+                    "content": e,
+                }
+            )
+
+        return new_request_body
