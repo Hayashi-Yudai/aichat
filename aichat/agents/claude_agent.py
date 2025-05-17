@@ -9,7 +9,6 @@ import anthropic
 
 from agents.mcp_tools import McpHandler, ClaudeToolFormatter
 from anthropic.types import (
-    Message as AnthropicMessage,
     ToolUseBlock,
     ContentBlockStartEvent,
     ContentBlockDeltaEvent,
@@ -146,12 +145,8 @@ class ClaudeAgent:
                                 break
 
                         logger.info(
-                            f"Calling tool (continue): {current_tool_name} with args: {tool_input}"
+                            f"Calling tool (continue): {current_tool_name}({tool_input})"
                         )
-                        log_msg = (
-                            f"Tool {current_tool_name} result received (continue). "
-                        )
-                        logger.info(log_msg)
 
                         messages.append(
                             {
