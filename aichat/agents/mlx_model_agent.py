@@ -124,25 +124,8 @@ class MLXAgent:
             match_tool = re.search(r"<tool_call>(.*?)</tool_call>", all_text, re.DOTALL)
             if match_tool:
                 json_str = match_tool.group(1)
-                try:
-                    data = self._parse_tool_call_json(json_str)
-                except Exception as e:
-                    logger.error(
-                        f"Failed to parse tool_call JSON: {e}\njson_str: {json_str}"
-                    )
-                    break
-                result = await self.mcp_handler.call_tool(
-                    data["name"],
-                    data["arguments"],
-                )
-
-                request_messages.append(
-                    {
-                        "role": "tool",
-                        "name": data["name"],
-                        "content": result["content"],
-                    }
-                )
+                tool_result = self._process_function_call(json_str)
+                request_messages.extend(tool_result)
             else:
                 break
 
@@ -157,3 +140,23 @@ class MLXAgent:
         json_str = re.sub(r",\s*([}\]])", r"\1", json_str)  # 末尾カンマ除去
         json_str = json_str.replace("\\", "\\\\")  # バックスラッシュのエスケープ
         return json.loads(json_str)
+
+    async def _process_function_call(self, function_call: Any) -> list[Any]:
+        try:
+            data = self._parse_tool_call_json(function_call)
+        except Exception as e:
+            logger.error(
+                f"Failed to parse tool_call JSON: {e}\njson_str: {function_call}"
+            )
+        result = await self.mcp_handler.call_tool(
+            data["name"],
+            data["arguments"],
+        )
+
+        request_messages = {
+            "role": "tool",
+            "name": data["name"],
+            "content": result["content"],
+        }
+
+        return [request_messages]
