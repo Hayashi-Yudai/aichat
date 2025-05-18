@@ -163,7 +163,7 @@ class GeminiAgent:
                 role="user",
                 parts=[
                     types.Part.from_function_response(
-                        name=function_call.name,
+                        name=name,  # type: ignore
                         response={"result": function_result},
                     )
                 ],

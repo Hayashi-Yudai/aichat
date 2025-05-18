@@ -43,7 +43,7 @@ class ChatDisplayController:
         )
 
     def update_message_streamly(self, controls: list[ft.Row], message: Message):
-        if controls[-1].message.role.avatar_color == message.role.avatar_color:
+        if controls[-1].message.role.avatar_color == message.role.avatar_color:  # type: ignore
             controls[-1] = self.item_builder(self.page, message)
         else:
             controls.append(self.item_builder(self.page, message))
