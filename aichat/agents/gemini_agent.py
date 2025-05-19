@@ -29,7 +29,19 @@ class GeminiAgent:
 
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
+        requests = []
+        mcp_prompts = await self.mcp_handler.watch_prompt_call(message.system_content)
+        for p in mcp_prompts:
+            requests.append(
+                types.Content(
+                    role=p.role,
+                    parts=[
+                        types.Part(text=p.content.text),
+                    ],
+                )
+            )
+
         request = types.Content(
             role="model" if message.is_assistant_message() else "user"
         )
@@ -51,7 +63,9 @@ class GeminiAgent:
                 logger.error(f"Invalid content type: {message.content_type}")
                 raise ValueError(f"Invalid content type: {message.content_type}")
 
-        return request  # type: ignore
+        requests.append(request)
+
+        return requests  # type: ignore
 
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Google Gemini...")
@@ -101,48 +115,39 @@ class GeminiAgent:
 
         return " ".join(final_content)
 
-    async def request_streaming(
-        self, messages: list[Message]
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
+        for m in messages:
+            prompt += await self._construct_request(m)
+
+        return prompt
+
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
+        return available_tools
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to Google Gemini with streaming...")
 
-        available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
+        content_stream = self.client.models.generate_content_stream(
+            model=self.model,
+            contents=prompt,
+            config=types.GenerateContentConfig(tools=tools),  # type: ignore
+        )
 
-        request_body = []
-        for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                request_body.append(
-                    types.Content(
-                        role=p.role,
-                        parts=[
-                            types.Part(text=p.content.text),
-                        ],
-                    )
-                )
-            request_body.append(self._construct_request(m))
-
-        for _ in range(config.MAX_REQUEST_COUNT):
-            is_final_response = True
-            content_stream = self.client.models.generate_content_stream(
-                model=self.model,
-                contents=request_body,
-                config=types.GenerateContentConfig(tools=available_tools),  # type: ignore
-            )
-
-            for content in content_stream:
-                for candidate in content.candidates:
-                    for part in candidate.content.parts:
-                        if part.function_call:
-                            tool_result = await self._process_function_call(
-                                part.function_call
-                            )
-                            request_body.extend(tool_result)
-                            is_final_response = False
-                        else:
-                            yield content.text
-            if is_final_response:
-                break
+        for content in content_stream:
+            for candidate in content.candidates:
+                for part in candidate.content.parts:
+                    if part.function_call:
+                        yield f"Tool call: {part.function_call.name}({part.function_call.args})"
+                        tool_result = await self._process_function_call(
+                            part.function_call
+                        )
+                        prompt.extend(tool_result)
+                    else:
+                        yield content.text
 
     async def _process_function_call(
         self, function_call: types.FunctionCall
