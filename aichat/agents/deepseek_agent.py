@@ -30,7 +30,7 @@ class DeepSeekAgent:
             base_url="https://api.deepseek.com",
         )
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
         request = {"role": ("assistant" if message.is_assistant_message else "user")}
 
         match message.content_type:
@@ -41,7 +41,7 @@ class DeepSeekAgent:
                 logger.error(f"{msg}: {message.content_type}")
                 raise ValueError(f"{msg}: {message.content_type}")
 
-        return request
+        return [request]
 
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to DeepSeek...")
@@ -58,14 +58,23 @@ class DeepSeekAgent:
 
         return content
 
-    async def request_streaming(
-        self, messages: list[Message]
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
+        for m in messages:
+            prompt += await self._construct_request(m)
+
+        return prompt
+
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        return []
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to DeepSeek...")
 
-        request_body = [self._construct_request(m) for m in messages]
         chat_completion = self.client.chat.completions.create(
-            messages=request_body,
+            messages=prompt,
             model=self.model,
             stream=True,
         )
