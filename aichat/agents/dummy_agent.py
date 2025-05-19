@@ -1,5 +1,6 @@
 from enum import StrEnum
-from typing import Any, Generator
+from typing import Any, AsyncGenerator
+from asyncio import sleep
 
 
 import config
@@ -21,15 +22,24 @@ class DummyAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = False
+        self.streamable = True
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
-        raise NotImplementedError("Dummy agent does not support request construction.")
+        return {"role": message.role, "content": message.system_content}
 
     async def request(self, messages: list[Message]) -> str:
         return messages[-1].display_content
 
-    async def request_streaming(
-        self, messages: list[Message]
-    ) -> Generator[str, None, None]:
-        raise NotImplementedError("Dummy agent does not support streaming.")
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        return [self._construct_request(m) for m in messages]
+
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        return []
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> AsyncGenerator[str, None]:
+        m = prompt[-1]["content"]
+        for chunk in m:
+            yield chunk
+            await sleep(0.05)
