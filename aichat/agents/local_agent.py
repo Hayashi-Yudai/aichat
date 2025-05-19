@@ -56,18 +56,6 @@ class LocalAgent:
 
         return request
 
-    async def request(self, messages: list[Message]) -> list[str]:
-        logger.info("Generating message with Gemma...")
-
-        request_body = [self._construct_request(m) for m in messages]
-        output = self.client(text_inputs=request_body, max_new_tokens=5000)
-        content = output[0]["generated_text"][-1]["content"]
-        if content is None:
-            logger.error("Gemma returned None")
-            return [""]
-
-        return [content]
-
     async def request_streaming(
         self, messages: list[Message]
     ) -> AsyncGenerator[str, None]:

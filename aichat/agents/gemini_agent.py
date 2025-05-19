@@ -67,54 +67,6 @@ class GeminiAgent:
 
         return requests  # type: ignore
 
-    async def request(self, messages: list[Message]) -> str:
-        logger.info("Sending message to Google Gemini...")
-
-        available_tools = GeminiToolFormatter.format(self.mcp_handler.tools)
-
-        request_body = []
-        for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                request_body.append(
-                    types.Content(
-                        role=p.role,
-                        parts=[
-                            types.Part(text=p.content.text),
-                        ],
-                    )
-                )
-            request_body.append(self._construct_request(m))
-            logger.debug(f"request_body: {request_body}")
-
-        cnt = 0
-        final_content = []
-        while cnt < config.MAX_REQUEST_COUNT:
-            is_final_response = True
-            content = self.client.models.generate_content(
-                model=self.model,
-                contents=request_body,
-                config=types.GenerateContentConfig(tools=available_tools),  # type: ignore
-            )
-
-            for candidate in content.candidates:
-                for part in candidate.content.parts:
-                    if part.function_call:
-                        tool_result = await self._process_function_call(
-                            part.function_call
-                        )
-                        request_body.extend(tool_result)
-                        is_final_response = False
-                    else:
-                        logger.debug("No function call found in the response.")
-                        logger.info(f"response.text: {content.text}")
-                        final_content.append(part.text)
-            if is_final_response:
-                break
-            cnt += 1
-
-        return " ".join(final_content)
-
     async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
         prompt = []
         for m in messages:

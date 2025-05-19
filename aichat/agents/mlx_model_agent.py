@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator
 
 from loguru import logger
 from transformers import TextIteratorStreamer
-from mlx_lm import load, generate, stream_generate
+from mlx_lm import load, stream_generate
 from mlx_lm.sample_utils import make_sampler
 
 import config
@@ -71,21 +71,6 @@ class MLXAgent:
         requests.append(request)
 
         return requests
-
-    async def request(self, messages: list[Message]) -> list[str]:
-        logger.info("Generating message with Gemma...")
-
-        request_body = []
-        for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                request_body.append({"role": p.role, "content": p.content.text})
-            request_body.append(self._construct_request(m))
-        output = generate(
-            self.client, self.tokenizer, prompt=request_body, max_tokens=self.max_tokens
-        )
-
-        return [output]
 
     async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
         prompt = []

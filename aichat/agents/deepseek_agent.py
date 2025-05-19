@@ -43,21 +43,6 @@ class DeepSeekAgent:
 
         return [request]
 
-    async def request(self, messages: list[Message]) -> str:
-        logger.info("Sending message to DeepSeek...")
-
-        request_body = [self._construct_request(m) for m in messages]
-        chat_completion = self.client.chat.completions.create(
-            messages=request_body,
-            model=self.model,
-        )
-        content = chat_completion.choices[0].message.content
-        if content is None:
-            logger.error("DeepSeek returned None")
-            return ""
-
-        return content
-
     async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
         prompt = []
         for m in messages:

@@ -7,7 +7,6 @@ from loguru import logger
 from openai import AsyncOpenAI
 from openai._streaming import AsyncStream
 from openai.types.chat.chat_completion_chunk import ChatCompletionChunk
-from openai.types.chat.chat_completion import ChatCompletion
 
 from agents.mcp_tools import McpHandler, OpenAIToolFormatter
 import config
@@ -69,101 +68,6 @@ class OpenAIAgent:
         requests.append(request)
 
         return requests
-
-    async def request(self, messages: list[Message]) -> str:
-        """Handles non-streaming requests with potential tool calls."""
-        logger.info("Sending non-streaming message to OpenAI with MCP support...")
-        openai_messages = []
-        for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                openai_messages.append({"role": p.role, "content": p.content.text})
-            openai_messages.append(self._construct_request(m))
-        final_text_parts = []
-        call_count = 0
-
-        available_tools = OpenAIToolFormatter.format(self.mcp_handler.tools)
-
-        while call_count < config.MAX_REQUEST_COUNT:
-            logger.info(f"Calling OpenAI API (Turn {call_count + 1})...")
-
-            request_params = {"messages": openai_messages, "model": self.model}
-            if len(available_tools) > 0:
-                request_params["tools"] = available_tools
-                request_params["tool_choice"] = "auto"
-
-            chat_completion: ChatCompletion = await self.client.chat.completions.create(
-                **request_params
-            )
-            response_message = chat_completion.choices[0].message
-            finish_reason = chat_completion.choices[0].finish_reason
-
-            openai_messages.append(response_message.model_dump(exclude_unset=True))
-
-            if response_message.content:
-                logger.info("Received text content.")
-                final_text_parts.append(response_message.content)
-
-            if response_message.tool_calls:
-                logger.info(
-                    f"Received {len(response_message.tool_calls)} tool call(s)."
-                )
-
-                tool_results = []
-                for tool_call in response_message.tool_calls:
-                    openai_tool_name = tool_call.function.name
-                    mcp_tool_name = openai_tool_name
-                    tool_args_str = tool_call.function.arguments
-                    tool_call_id = tool_call.id
-                    logger.info(
-                        f"Received tool call for {openai_tool_name}, converting to {mcp_tool_name}"
-                    )
-                    tool_results.extend(
-                        await self._process_function_call(
-                            {
-                                "id": tool_call_id,
-                                "name": mcp_tool_name,
-                                "args": tool_args_str,
-                            }
-                        )
-                    )
-
-                openai_messages.extend(tool_results)
-                call_count += 1
-                continue
-
-            if finish_reason == "stop":
-                logger.info("Finish reason 'stop'. Ending interaction.")
-                break
-            elif finish_reason == "length":
-                logger.warning("Finish reason 'length'. Max tokens reached.")
-                break
-            elif finish_reason == "tool_calls":
-                logger.debug("Finish reason 'tool_calls'. Loop will continue.")
-            else:
-                logger.warning(f"Unexpected finish reason: {finish_reason}")
-                break
-
-            call_count += 1
-            if call_count >= config.MAX_REQUEST_COUNT:
-                logger.warning("Reached max request count.")
-                break
-
-        content_text = "\n".join(final_text_parts).strip()
-        assistant_had_tool_calls = any(
-            msg.get("role") == "assistant" and msg.get("tool_calls")
-            for msg in openai_messages
-        )
-
-        if not content_text and not assistant_had_tool_calls:
-            logger.warning("OpenAI returned no text and no tool use was processed.")
-            return "No response generated."
-        elif not content_text and assistant_had_tool_calls:
-            logger.info("OpenAI response consisted only of tool use(s).")
-            return "[Tool use completed]"
-
-        logger.info("Successfully received response from OpenAI.")
-        return content_text
 
     async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
         prompt = []

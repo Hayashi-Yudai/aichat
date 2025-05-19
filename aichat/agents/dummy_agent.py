@@ -27,9 +27,6 @@ class DummyAgent:
     def _construct_request(self, message: Message) -> dict[str, Any]:
         return {"role": message.role, "content": message.system_content}
 
-    async def request(self, messages: list[Message]) -> str:
-        return messages[-1].display_content
-
     async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
         return [self._construct_request(m) for m in messages]
 
