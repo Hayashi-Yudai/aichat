@@ -42,11 +42,14 @@ class ChatDisplayController:
             f"{self.__class__.__name__} published topic: {Topics.REQUEST_TO_AGENT}"
         )
 
-    def update_message_streamly(self, controls: list[ft.Row], message: Message):
-        if controls[-1].message.role.avatar_color == message.role.avatar_color:  # type: ignore
-            controls[-1] = self.item_builder(self.page, message)
-        else:
+    def update_message_streamly(
+        self, controls: list[ft.Row], message: tuple[Message, bool]
+    ):
+        message, is_new_message = message
+        if is_new_message:
             controls.append(self.item_builder(self.page, message))
+        else:
+            controls[-1] = self.item_builder(self.page, message)
         self.page.run_task(self.update_content_callback, controls)
 
     def _get_all_messages_by_chat_id(self, chat_id: int) -> list[Message]:
