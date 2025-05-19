@@ -3,7 +3,7 @@ import uuid
 import flet as ft
 from loguru import logger
 
-from agents import Agent, all_models, get_agent_by_model
+from agents import StreamableAgent, all_models, get_agent_by_model
 from controllers.left_side_bar_controller import PastChatListController
 from topics import Topics
 
@@ -28,7 +28,7 @@ class NewChatButton(ft.IconButton):
 
 
 class ModelSelector(ft.Dropdown):
-    def __init__(self, page: ft.Page, default_agent: Agent):
+    def __init__(self, page: ft.Page, default_agent: StreamableAgent):
         super().__init__()
 
         self.options = [ft.dropdown.Option(m) for m in all_models]
@@ -120,7 +120,7 @@ class PastChatListContainer(ft.Container):
 
 
 class LeftSideBarArea(ft.Column):
-    def __init__(self, page: ft.Page, default_agent: Agent):
+    def __init__(self, page: ft.Page, default_agent: StreamableAgent):
         super().__init__()
 
         self.expand = False

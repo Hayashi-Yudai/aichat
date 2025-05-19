@@ -3,7 +3,7 @@ import sys  # Add sys import
 from enum import StrEnum
 from pathlib import Path
 
-from .agent import Agent
+from .agent import StreamableAgent
 from .mcp_tools.mcp_handler import McpHandler  # Added McpHandler import
 from .openai_agent import OpenAIAgent, OpenAIModel
 from .gemini_agent import GeminiAgent, GeminiModel
@@ -37,7 +37,7 @@ all_models = list(itertools.chain.from_iterable(base_models))
 _mcp_handler_instance = McpHandler(Path(__file__).parent / "mcp_tools/servers.json")
 
 
-def get_agent_by_model(model: StrEnum) -> Agent:
+def get_agent_by_model(model: StrEnum) -> StreamableAgent:
     """Gets an agent instance based on the model enum."""
     # Pass the shared McpHandler instance to agents that need it
     if model in OpenAIModel:
