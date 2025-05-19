@@ -34,7 +34,7 @@ class LocalAgent:
             self.client.tokenizer, skip_prompt=True, skip_special_tokens=True
         )
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
         request = {
             "role": (
                 "assistant"
@@ -54,16 +54,25 @@ class LocalAgent:
             logger.error(f"Invalid content type: {message.content_type}")
             raise ValueError(f"Invalid content type: {message.content_type}")
 
-        return request
+        return [request]
 
-    async def request_streaming(
-        self, messages: list[Message]
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
+        for m in messages:
+            prompt += await self._construct_request(m)
+
+        return prompt
+
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        return []
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> AsyncGenerator[str, None]:
         logger.info("Generate message with gemma in streaming.")
-        request_body = [self._construct_request(m) for m in messages]
         generation_kwargs = {
-            "text_inputs": request_body,
-            "max_new_tokens": 5000,
+            "text_inputs": prompt,
+            "max_new_tokens": 4096,
             "streamer": self.streamer,
         }
 
