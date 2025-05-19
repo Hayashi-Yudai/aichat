@@ -25,8 +25,6 @@ class GeminiAgent:
         self.role = Role(f"{config.AGENT_NAME} ({model})", config.AGENT_AVATAR_COLOR)
         self.mcp_handler = mcp_handler
 
-        self.streamable = True
-
         self.client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY"))
 
     async def _construct_request(self, message: Message) -> list[dict[str, Any]]:

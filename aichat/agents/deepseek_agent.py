@@ -22,8 +22,6 @@ class DeepSeekAgent:
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
 
-        self.streamable = True
-
         # Use openai library
         self.client = OpenAI(
             api_key=os.environ.get("DEEPSEEK_API_KEY"),

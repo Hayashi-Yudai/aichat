@@ -27,7 +27,6 @@ class MLXAgent:
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
         self.max_tokens = 4096
-        self.streamable = True
 
         self.client, self.tokenizer = load(self.model)
         self.mcp_handler = mcp_handler

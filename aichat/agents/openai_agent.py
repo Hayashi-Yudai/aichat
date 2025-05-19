@@ -33,7 +33,6 @@ class OpenAIAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = True
         self.client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
         self.mcp_handler = mcp_handler
 

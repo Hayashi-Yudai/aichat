@@ -22,7 +22,6 @@ class DummyAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = True
 
     def _construct_request(self, message: Message) -> dict[str, Any]:
         return {"role": message.role, "content": message.system_content}

@@ -21,7 +21,6 @@ class LocalAgent:
         self.role = Role(
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
-        self.streamable = True
 
         self.client = pipeline(
             "text-generation",
