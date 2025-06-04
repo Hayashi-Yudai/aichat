@@ -5,7 +5,7 @@ from typing import Any, AsyncGenerator
 
 from loguru import logger
 from transformers import TextIteratorStreamer
-from mlx_lm import load, generate, stream_generate
+from mlx_lm import load, stream_generate
 from mlx_lm.sample_utils import make_sampler
 
 import config
@@ -27,7 +27,6 @@ class MLXAgent:
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
         self.max_tokens = 4096
-        self.streamable = True
 
         self.client, self.tokenizer = load(self.model)
         self.mcp_handler = mcp_handler
@@ -42,7 +41,13 @@ class MLXAgent:
 
         logger.info("MLX agent deleted.")
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
+        requests = []
+
+        mcp_prompt = await self.mcp_handler.watch_prompt_call(message.system_content)
+        for p in mcp_prompt:
+            requests.append({"role": p.role, "content": p.content.text})
+
         request = {
             "role": (
                 "assistant"
@@ -62,34 +67,18 @@ class MLXAgent:
             logger.error(f"Invalid content type: {message.content_type}")
             raise ValueError(f"Invalid content type: {message.content_type}")
 
-        return request
+        requests.append(request)
 
-    async def request(self, messages: list[Message]) -> list[str]:
-        logger.info("Generating message with Gemma...")
+        return requests
 
-        request_body = []
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
         for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                request_body.append({"role": p.role, "content": p.content.text})
-            request_body.append(self._construct_request(m))
-        output = generate(
-            self.client, self.tokenizer, prompt=request_body, max_tokens=self.max_tokens
-        )
+            prompt += await self._construct_request(m)
 
-        return [output]
+        return prompt
 
-    async def request_streaming(
-        self, messages: list[Message]
-    ) -> AsyncGenerator[str, None]:
-        logger.info("Generate message with mlx-model in streaming.")
-        request_messages = []
-        for m in messages:
-            prompts = await self.mcp_handler.watch_prompt_call(m.system_content)
-            for p in prompts:
-                request_messages.append({"role": p.role, "content": p.content.text})
-            request_messages.append(self._construct_request(m))
-
+    def prepare_tools(self) -> list[dict[str, Any]]:
         available_tools = [
             {
                 "type": "function",
@@ -101,33 +90,36 @@ class MLXAgent:
             }
             for tool in self.mcp_handler.tools
         ]
+        return available_tools
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> AsyncGenerator[str, None]:
+        logger.info("Generate message with mlx-model in streaming.")
         sampler = make_sampler(temp=0.6, top_p=0.95, top_k=20, min_p=0.0)
-        for _ in range(5):
-            request_body = self.tokenizer.apply_chat_template(
-                request_messages,
-                tools=available_tools,
-                add_generation_prompt=True,
-            )
+        request_body = self.tokenizer.apply_chat_template(
+            prompt,
+            tools=tools,
+            add_generation_prompt=True,
+        )
 
-            all_text = ""
-            for response in stream_generate(
-                self.client,
-                self.tokenizer,
-                request_body,
-                max_tokens=self.max_tokens,
-                sampler=sampler,
-            ):
-                all_text += response.text
-                yield response.text
+        all_text = ""
+        for response in stream_generate(
+            self.client,
+            self.tokenizer,
+            request_body,
+            max_tokens=self.max_tokens,
+            sampler=sampler,
+        ):
+            all_text += response.text
+            yield response.text
 
-            # FIXME: たまにjsonのパースに失敗する
-            match_tool = re.search(r"<tool_call>(.*?)</tool_call>", all_text, re.DOTALL)
-            if match_tool:
-                json_str = match_tool.group(1)
-                tool_result = self._process_function_call(json_str)
-                request_messages.extend(tool_result)
-            else:
-                break
+        # FIXME: たまにjsonのパースに失敗する
+        match_tool = re.search(r"<tool_call>(.*?)</tool_call>", all_text, re.DOTALL)
+        if match_tool:
+            json_str = match_tool.group(1)
+            tool_result = await self._process_function_call(json_str)
+            prompt.extend(tool_result)
 
     def _parse_tool_call_json(self, json_str: str) -> dict:
         """

@@ -1,6 +1,6 @@
 import asyncio
 from enum import StrEnum
-from typing import Any, Protocol, Generator
+from typing import Any, Protocol, AsyncGenerator
 
 import flet as ft
 from loguru import logger
@@ -11,18 +11,17 @@ from models.message import Message, ContentType
 from models.role import Role
 
 
-class Agent(Protocol):
+class StreamableAgent(Protocol):
     model: StrEnum
     role: Role
-    streamable: bool
 
-    def _construct_request(self, message: Message) -> dict[str, Any]: ...
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]: ...
 
-    async def request(self, messages: list[Message]) -> str: ...
+    def prepare_tools(self) -> list[dict[str, Any]]: ...
 
-    async def request_streaming(
-        self, messages: list[Message]
-    ) -> Generator[str, None, None]: ...
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
+    ) -> AsyncGenerator[str, None]: ...
 
 
 class AgentController:
@@ -39,34 +38,34 @@ class AgentController:
 
         logger.info(f"{self.__class__.__name__}: Request to agent...")
 
-        agent: Agent = self.page.session.get("agent")
+        agent: StreamableAgent = self.page.session.get("agent")
         chat_id: str = self.page.session.get("chat_id")
 
-        request_func = self.stream_request if agent.streamable else self.batch_request
-        response_message = asyncio.run(request_func(chat_id, messages, agent))
-        response_message.insert_into_db()
+        request_func = self.stream_request
+        asyncio.run(request_func(chat_id, messages, agent))
 
     async def stream_request(
-        self, chat_id: str, messages: list[Message], agent: Agent
-    ) -> Message:
-        response = ""
-        async for chunk in agent.request_streaming(messages):
-            response += chunk
-            response_message = Message.construct_auto_file(
-                chat_id, response, response, agent.role, ContentType.TEXT
-            )
+        self, chat_id: str, messages: list[Message], agent: StreamableAgent
+    ) -> None:
+        prompt = await agent.prepare_prompt(messages)
+        tools = agent.prepare_tools()
 
-            self.page.pubsub.send_all_on_topic(
-                Topics.UPDATE_MESSAGE_STREAMLY, response_message
-            )
+        for _ in range(5):
+            msg_count = len(prompt)
+            response = ""
+            message_start = True
+            async for chunk in agent.request_once(prompt, tools):
+                response += chunk
+                response_message = Message.construct_auto_file(
+                    chat_id, response, response, agent.role, ContentType.TEXT
+                )
 
-        return response_message
+                self.page.pubsub.send_all_on_topic(
+                    Topics.UPDATE_MESSAGE_STREAMLY, (response_message, message_start)
+                )
+                message_start = False
 
-    async def batch_request(
-        self, chat_id: str, messages: list[Message], agent: Agent
-    ) -> Message:
-        response = await agent.request(messages)
-        response_message = Message.construct_auto(chat_id, response, agent.role)
-        self.page.pubsub.send_all_on_topic(Topics.APPEND_MESSAGE, response_message)
+            response_message.insert_into_db()
 
-        return response_message
+            if msg_count == len(prompt):
+                break

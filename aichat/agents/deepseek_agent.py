@@ -22,15 +22,13 @@ class DeepSeekAgent:
             f"{config.AGENT_NAME} ({self.model})", config.AGENT_AVATAR_COLOR
         )
 
-        self.streamable = True
-
         # Use openai library
         self.client = OpenAI(
             api_key=os.environ.get("DEEPSEEK_API_KEY"),
             base_url="https://api.deepseek.com",
         )
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
         request = {"role": ("assistant" if message.is_assistant_message else "user")}
 
         match message.content_type:
@@ -41,31 +39,25 @@ class DeepSeekAgent:
                 logger.error(f"{msg}: {message.content_type}")
                 raise ValueError(f"{msg}: {message.content_type}")
 
-        return request
+        return [request]
 
-    async def request(self, messages: list[Message]) -> str:
-        logger.info("Sending message to DeepSeek...")
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
+        for m in messages:
+            prompt += await self._construct_request(m)
 
-        request_body = [self._construct_request(m) for m in messages]
-        chat_completion = self.client.chat.completions.create(
-            messages=request_body,
-            model=self.model,
-        )
-        content = chat_completion.choices[0].message.content
-        if content is None:
-            logger.error("DeepSeek returned None")
-            return ""
+        return prompt
 
-        return content
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        return []
 
-    async def request_streaming(
-        self, messages: list[Message]
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> AsyncGenerator[str, None]:
         logger.info("Sending message to DeepSeek...")
 
-        request_body = [self._construct_request(m) for m in messages]
         chat_completion = self.client.chat.completions.create(
-            messages=request_body,
+            messages=prompt,
             model=self.model,
             stream=True,
         )

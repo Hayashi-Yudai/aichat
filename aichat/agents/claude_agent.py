@@ -40,7 +40,17 @@ class ClaudeAgent:
         )
         self.mcp_handler = mcp_handler
 
-    def _construct_request(self, message: Message) -> dict[str, Any]:
+    async def _construct_request(self, message: Message) -> list[dict[str, Any]]:
+        requests = []
+        mcp_prompts = await self.mcp_handler.watch_prompt_call(message.system_content)
+        for p in mcp_prompts:
+            requests.append(
+                {
+                    "role": p.role,
+                    "content": {"type": p.content.type, "text": p.content.text},
+                }
+            )
+
         request = {"role": ("assistant" if message.is_assistant_message() else "user")}
 
         match message.content_type:
@@ -65,7 +75,9 @@ class ClaudeAgent:
                 logger.error(f"Invalid content type: {message.content_type}")
                 raise ValueError(f"Invalid content type: {message.content_type}")
 
-        return request
+        requests.append(request)
+
+        return requests
 
     async def request(self, messages: list[Message]) -> str:
         logger.info("Sending message to Claude...")
@@ -177,48 +189,50 @@ class ClaudeAgent:
         logger.info("Successfully received response from Claude.")
         return content_text
 
-    async def request_streaming(
-        self, messages: list[Message]
+    async def prepare_prompt(self, messages: list[Message]) -> list[dict[str, Any]]:
+        prompt = []
+        for m in messages:
+            prompt += await self._construct_request(m)
+
+        return prompt
+
+    def prepare_tools(self) -> list[dict[str, Any]]:
+        available_tools = ClaudeToolFormatter.format(self.mcp_handler.tools)
+        return available_tools
+
+    async def request_once(
+        self, prompt: list[dict[str, Any]], tools: list[dict[str, Any]]
     ) -> AsyncGenerator[str, None]:
         logger.info("Starting streaming request with MCP support...")
-        claude_messages = [self._construct_request(m) for m in messages]
+        async with self.client.messages.stream(
+            messages=prompt,
+            model=self.model,
+            max_tokens=self.MAX_TOKENS,
+            tools=tools,
+        ) as stream:
+            assistant_message = []
+            async for event in stream:
+                match event.type:
+                    case "content_block_start":
+                        assistant_message = self._process_block_start(
+                            event, assistant_message
+                        )
+                    case "content_block_delta":
+                        assistant_message, output_text = self._process_block_delta(
+                            event, assistant_message
+                        )
+                        yield output_text
+                    case "content_block_stop":
+                        assistant_message = self._process_block_stop(
+                            event, assistant_message
+                        )
+                    case "message_stop":
+                        prompt = await self._process_message_stop(
+                            prompt, assistant_message
+                        )
+                    case _:
+                        continue
 
-        available_tools = ClaudeToolFormatter.format(self.mcp_handler.tools)
-        for _ in range(config.MAX_REQUEST_COUNT):
-            used_tools = False
-            async with self.client.messages.stream(
-                messages=claude_messages,
-                model=self.model,
-                max_tokens=self.MAX_TOKENS,
-                tools=available_tools,
-            ) as stream:
-                assistant_message = []
-                async for event in stream:
-                    match event.type:
-                        case "content_block_start":
-                            assistant_message = self._process_block_start(
-                                event, assistant_message
-                            )
-                        case "content_block_delta":
-                            assistant_message, output_text = self._process_block_delta(
-                                event, assistant_message
-                            )
-                            yield output_text
-                        case "content_block_stop":
-                            assistant_message = self._process_block_stop(
-                                event, assistant_message
-                            )
-                        case "message_stop":
-                            claude_messages, used_tools = (
-                                await self._process_message_stop(
-                                    claude_messages, assistant_message
-                                )
-                            )
-                        case _:
-                            continue
-
-            if not used_tools:
-                break
         logger.info("Streaming request completed.")
 
     def _process_block_start(
@@ -262,37 +276,33 @@ class ClaudeAgent:
         if assistant_message[event.index]["type"] != "tool_use":
             return assistant_message
 
-        assistant_message[event.index]["input"] = json.loads(
-            assistant_message[event.index]["input"]
-        )
-
         return assistant_message
 
     async def _process_message_stop(
         self, claude_messages: list[Any], assistant_message: list[Any]
-    ) -> tuple[list[Any], bool]:
-        used_tools = False
-        claude_messages.append(
-            {
-                "role": "assistant",
-                "content": assistant_message,
-            }
-        )
+    ) -> list[Any]:
+        has_tool_use = any([msg["type"] == "tool_use" for msg in assistant_message])
+        if has_tool_use:
+            claude_messages.append(
+                {
+                    "role": "assistant",
+                    "content": assistant_message,
+                }
+            )
         for msg in assistant_message:
             if msg["type"] == "tool_use":
                 tool_result = await self._process_function_call(msg)
                 claude_messages.extend(tool_result)
-                used_tools = True
 
-        return claude_messages, used_tools
+        return claude_messages
 
     async def _process_function_call(self, function_call) -> list[dict[str, Any]]:
         name = function_call["name"]
-        args = function_call["input"]
         tool_id = function_call["id"]
 
         new_request_body = []
         try:
+            args = json.loads(function_call["input"])
             tool_result_data = await self.mcp_handler.call_tool(name, args)
             tool_result_message = {
                 "role": "user",

@@ -5,24 +5,24 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "flet[all]>=0.26.0",
-    "flet-cli>=0.26.0",
+    "flet[all]>=0.28.0",
+    "flet-cli>=0.28.0",
     "loguru>=0.7.3",
-    "openai>=1.66.0",
+    "openai>=1.78.0",
     "pdfplumber>=0.11.5",
     "pydantic>=2.10.6",
-    "anthropic>=0.49.0",
-    "mistralai>=1.5.1",
+    "anthropic>=0.51.0",
+    "mistralai>=1.7.0",
     "torch>=2.6.0",
-    "transformers>=4.50.2",
-    "google-genai>=1.8.0",
-    "mlx>=0.24.2",
-    "mlx-lm>=0.22.3",
-    "mcp[cli]>=1.6.0",
+    "transformers>=4.51.0",
+    "google-genai>=1.15.0",
+    "mlx>=0.25.0",
+    "mlx-lm>=0.24.0",
+    "mcp[cli]>=1.9.0",
 ]
 
 [dependency-groups]
-dev = ["ipython>=9.2.0", "ruff>=0.11.9", "ty>=0.0.0a8"]
+dev = ["ipython>=9.2.0", "ruff>=0.11.9", "ty>=0.0.1a5"]
 
 [tool.ruff]
 exclude = [".venv", ".vscode", "__pypackages__", ".git"]
